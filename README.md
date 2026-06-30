@@ -2,15 +2,16 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 4: subtitle generation and alignment.
+currently complete through Phase 5: authorized background-media cataloging and
+clip selection.
 
-No background-video selection, final video rendering, Reddit ingestion,
-database, UI, or publishing behavior exists yet. No paid provider calls are made
-by tests.
+No final video rendering, Reddit ingestion, database, UI, or publishing behavior
+exists yet. No paid provider calls are made by tests.
 
 ## Requirements
 
 - Python 3.12 or newer
+- FFmpeg's `ffprobe` executable for real background-media imports
 
 ## Setup
 
@@ -102,6 +103,19 @@ Inspect or export a subtitle artifact:
 ```bash
 autotok subtitle inspect subtitle_0123456789abcdef
 autotok subtitle export subtitle_0123456789abcdef --format ass
+```
+
+Catalog an authorized background media file:
+
+```bash
+autotok media import --file path/to/clip.mp4 --license-note "User-owned gameplay capture" --tag gameplay
+```
+
+Inspect cataloged background media and select a deterministic segment:
+
+```bash
+autotok media inspect media_0123456789abcdef
+autotok media select --target-seconds 45 --orientation portrait --tag gameplay --seed 7
 ```
 
 Use a specific local artifact workspace:
@@ -211,6 +225,33 @@ Phase 4 supports provider word timings when supplied as JSON and an explicit
 approximate fallback that distributes script words across the narration audio
 duration. Subtitle generation validates the script/audio relationship, cue
 timing, text readability constraints, and export format.
+
+## Background Media Artifacts
+
+Authorized background media records are stored under:
+
+```text
+data/media/media_<hash-prefix>/
+```
+
+Each media directory contains:
+
+- `record.json`, FFprobe-derived video metadata, authorization/license notes,
+  tags, source path, and content hash
+- `source.<ext>`, the copied local media file
+
+Prepared background clip selections are stored under:
+
+```text
+data/clips/clip_<hash-prefix>/
+```
+
+Each clip directory contains `record.json` with the selected media ID, target
+segment duration, deterministic seed, start/end offsets, requested tags and
+orientation, and recent media IDs avoided when possible.
+
+Phase 5 does not trim or render media. It only catalogs authorized local clips
+and prepares a segment record for the later composition phase.
 
 ## Documentation
 

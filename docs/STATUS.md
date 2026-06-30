@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 - Subtitle generation and alignment.
+Phase 5 - Background-media library.
 
 ## Implemented
 
@@ -44,6 +44,14 @@ Phase 4 - Subtitle generation and alignment.
 - subtitle generation, inspection, and export through
   `autotok subtitle generate`, `autotok subtitle inspect`, and
   `autotok subtitle export`
+- canonical background-media and clip-preparation dataclasses
+- ffprobe-backed video metadata probing and invalid-media handling
+- authorization/license notes, usage notes, and tags for cataloged media
+- background media artifacts under `data/media/`
+- deterministic clip-preparation artifacts under `data/clips/`
+- duration, orientation, tag, seed, start-offset, and recent-use-aware selection
+- background media import, inspection, and selection through
+  `autotok media import`, `autotok media inspect`, and `autotok media select`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -51,13 +59,14 @@ Phase 4 - Subtitle generation and alignment.
 
 ## Not Implemented
 
-The repository does not yet select background media, render video, ingest Reddit
+The repository does not yet render video, trim selected clips, ingest Reddit
 content, store data in a database, provide a UI, or publish content. It also does
 not call real paid/cloud TTS or transcription providers.
 
-## Phase 4 Acceptance Evidence
+## Phase 5 Acceptance Evidence
 
-An approved script and matching narration audio can produce a validated subtitle
-document, store it locally, inspect it through the CLI, and export SRT, VTT, or
-ASS subtitle files. Provider word timings are supported through a local JSON
-fixture, and approximate alignment is explicitly recorded when used.
+An authorized local background clip can be cataloged with ffprobe metadata,
+license/usage notes, and tags, inspected through the CLI, and selected into a
+clip-preparation record with deterministic seed-based start offsets. Selection
+filters by target duration, orientation, and tags, and avoids recently selected
+media IDs when alternatives exist.

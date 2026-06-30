@@ -173,9 +173,40 @@ Excluded:
 Exit gate: narration audio and script produce a validated subtitle document that
 can be inspected and exported.
 
-## Later Phases
+## Phase 5 - Background-Media Library
 
-Phase 5: background-media library.
+Goal: manage authorized gameplay or background clips and select a suitable
+segment.
+
+Status: complete.
+
+In scope:
+
+- media import/catalog command
+- ffprobe-based metadata extraction
+- license and usage-note support
+- invalid media detection
+- tags
+- deterministic selection with seed
+- duration and orientation filtering
+- start-offset selection
+- recent-use avoidance design
+- clip-preparation artifacts under `data/clips/`
+- compact synthetic media fixtures for tests
+
+Excluded:
+
+- final video composition
+- actual clip trimming
+- burned-in subtitle rendering
+- Reddit or automated source ingestion
+- review UI
+- publishing
+
+Exit gate: AutoTok can catalog authorized clips and deterministically select a
+valid segment for a target narration duration.
+
+## Later Phases
 
 Phase 6: end-to-end vertical video rendering for the first local MVP.
 

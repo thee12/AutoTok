@@ -15,6 +15,15 @@ from autotok.config import AppConfig, ConfigError
 from autotok.errors import AutoTokError, UserInputError
 from autotok.ingestion import build_manual_file_record, build_manual_text_record
 from autotok.logging import configure_logging
+from autotok.media_models import MediaOrientation
+from autotok.media_selection import (
+    DEFAULT_RECENT_AVOIDANCE_LIMIT,
+    DEFAULT_SELECTION_SEED,
+    build_background_media_record,
+    recent_media_ids_from_clips,
+    select_background_clip,
+)
+from autotok.media_storage import MediaStore, StoredClip, StoredMedia
 from autotok.models import StoryRecord
 from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
@@ -59,6 +68,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_script_parser(subcommands)
     _add_audio_parser(subcommands)
     _add_subtitle_parser(subcommands)
+    _add_media_parser(subcommands)
     return parser
 
 
@@ -262,6 +272,90 @@ def _add_subtitle_parser(subcommands: argparse._SubParsersAction[argparse.Argume
     subtitle_export.set_defaults(handler=run_subtitle_export)
 
 
+def _add_media_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    media = subcommands.add_parser(
+        "media",
+        help="Catalog authorized background media and select prepared clips.",
+    )
+    media_subcommands = media.add_subparsers(dest="media_command", required=True)
+
+    media_import = media_subcommands.add_parser(
+        "import",
+        help="Import an authorized background media file into the local catalog.",
+    )
+    media_import.add_argument(
+        "--file",
+        type=Path,
+        required=True,
+        help="Local video file to catalog.",
+    )
+    media_import.add_argument(
+        "--license-note",
+        required=True,
+        help="Required note describing why this clip is authorized for use.",
+    )
+    media_import.add_argument("--usage-note", help="Optional local usage note.")
+    media_import.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="Tag for filtering and deterministic selection; may be repeated.",
+    )
+    media_import.add_argument(
+        "--ffprobe-path",
+        type=Path,
+        default=Path("ffprobe"),
+        help="Path to ffprobe executable.",
+    )
+    media_import.add_argument("--json", action="store_true", help="Print media record as JSON.")
+    media_import.set_defaults(handler=run_media_import)
+
+    media_inspect = media_subcommands.add_parser(
+        "inspect",
+        help="Inspect a cataloged background media record.",
+    )
+    media_inspect.add_argument("media_id", help="Cataloged media ID to inspect.")
+    media_inspect.add_argument("--json", action="store_true", help="Print media record as JSON.")
+    media_inspect.set_defaults(handler=run_media_inspect)
+
+    media_select = media_subcommands.add_parser(
+        "select",
+        help="Select a deterministic background segment for a target duration.",
+    )
+    media_select.add_argument(
+        "--target-seconds",
+        type=float,
+        required=True,
+        help="Required segment duration in seconds.",
+    )
+    media_select.add_argument(
+        "--orientation",
+        choices=["any", *[item.value for item in MediaOrientation]],
+        default="any",
+        help="Required media orientation.",
+    )
+    media_select.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="Required media tag; may be repeated.",
+    )
+    media_select.add_argument(
+        "--seed",
+        type=int,
+        default=DEFAULT_SELECTION_SEED,
+        help="Deterministic selection seed.",
+    )
+    media_select.add_argument(
+        "--avoid-recent",
+        type=int,
+        default=DEFAULT_RECENT_AVOIDANCE_LIMIT,
+        help="Number of recently selected media IDs to avoid when possible.",
+    )
+    media_select.add_argument("--json", action="store_true", help="Print clip record as JSON.")
+    media_select.set_defaults(handler=run_media_select)
+
+
 def run_doctor(args: argparse.Namespace) -> int:
     """Run the harmless diagnostic command."""
     config = _load_config(args)
@@ -446,6 +540,84 @@ def run_audio_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_media_import(args: argparse.Namespace) -> int:
+    """Import an authorized background media file."""
+    config = _load_config(args)
+    media_path = args.file.expanduser()
+    record = build_background_media_record(
+        media_path=media_path,
+        license_note=args.license_note,
+        usage_note=args.usage_note,
+        tags=args.tag,
+        ffprobe_command=[str(args.ffprobe_path)],
+    )
+    stored = MediaStore(config.data_dir).save_media(record, source_media_path=media_path)
+    payload = _stored_media_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Background media: {stored.record.media_id}")
+        print(f"Status: {status}")
+        print(f"Orientation: {stored.record.metadata.orientation.value}")
+        print(f"Duration seconds: {stored.record.metadata.duration_seconds}")
+        print(f"Tags: {', '.join(stored.record.tags) or '(none)'}")
+        print(f"Record: {stored.record_path}")
+        print(f"Media: {stored.media_path}")
+    return 0
+
+
+def run_media_inspect(args: argparse.Namespace) -> int:
+    """Inspect a cataloged background media record."""
+    config = _load_config(args)
+    stored = MediaStore(config.data_dir).load_media(args.media_id)
+    payload = _stored_media_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        record = stored.record
+        print(f"Background media: {record.media_id}")
+        print(f"Original filename: {record.original_filename}")
+        print(f"Orientation: {record.metadata.orientation.value}")
+        print(f"Duration seconds: {record.metadata.duration_seconds}")
+        print(f"Resolution: {record.metadata.width}x{record.metadata.height}")
+        print(f"Tags: {', '.join(record.tags) or '(none)'}")
+        print(f"License note: {record.license_note}")
+        print(f"Record: {stored.record_path}")
+        print(f"Media: {stored.media_path}")
+    return 0
+
+
+def run_media_select(args: argparse.Namespace) -> int:
+    """Select and store a background clip-preparation artifact."""
+    config = _load_config(args)
+    store = MediaStore(config.data_dir)
+    orientation = None if args.orientation == "any" else MediaOrientation(args.orientation)
+    recent_media_ids = recent_media_ids_from_clips(store.list_clips(), limit=args.avoid_recent)
+    record = select_background_clip(
+        store.list_media(),
+        target_duration_seconds=args.target_seconds,
+        seed=args.seed,
+        orientation=orientation,
+        required_tags=args.tag,
+        recent_media_ids=recent_media_ids,
+    )
+    stored = store.save_clip(record)
+    payload = _stored_clip_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Prepared clip: {stored.record.clip_id}")
+        print(f"Status: {status}")
+        print(f"Media: {stored.record.media_id}")
+        print(f"Start seconds: {stored.record.start_seconds}")
+        print(f"End seconds: {stored.record.end_seconds}")
+        print(f"Seed: {stored.record.seed}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
 def run_subtitle_generate(args: argparse.Namespace) -> int:
     """Generate a subtitle document from a script/audio pair."""
     config = _load_config(args)
@@ -577,6 +749,23 @@ def _stored_audio_payload(stored: StoredAudio) -> dict[str, Any]:
         "record": str(stored.record_path),
         "audio": str(stored.audio_path),
     }
+    return payload
+
+
+def _stored_media_payload(stored: StoredMedia) -> dict[str, Any]:
+    payload = stored.record.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {
+        "record": str(stored.record_path),
+        "media": str(stored.media_path),
+    }
+    return payload
+
+
+def _stored_clip_payload(stored: StoredClip) -> dict[str, Any]:
+    payload = stored.record.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {"record": str(stored.record_path)}
     return payload
 
 
