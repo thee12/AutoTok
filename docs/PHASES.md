@@ -44,7 +44,7 @@ all configured checks.
 Goal: accept a local text story and turn it into a validated internal source
 record.
 
-Status: implemented in this working tree.
+Status: complete.
 
 In scope:
 
@@ -75,9 +75,40 @@ Excluded:
 Exit gate: a local story can be imported repeatably, inspected, and represented
 by validated metadata without modifying the source.
 
-## Later Phases
+## Phase 2 - Script Transformation and Review Artifacts
 
-Phase 2: script transformation and review artifacts.
+Goal: convert an imported story into a narration-ready script while preserving
+provenance and requiring review.
+
+Status: implemented in this working tree.
+
+In scope:
+
+- deterministic baseline cleaner
+- privacy-cleaning rules for common contact details
+- hook/body/outro script structure
+- target-duration budgeting and estimated narration duration
+- provider-independent transformation interface
+- deterministic provider and fake provider test double
+- before/after artifacts and transformation metadata
+- pending-review and approved script statuses
+- CLI commands for transform, inspect, and approve
+- tests using deterministic and fake providers
+
+Excluded:
+
+- real narration generation
+- subtitle timing
+- video rendering
+- Reddit or automated source ingestion
+- review UI
+- publishing
+- real external AI calls
+
+Exit gate: an imported story can produce a reviewable narration script with
+transformation history and duration estimate.
+
+## Later Phases
 
 Phase 3: narration audio.
 

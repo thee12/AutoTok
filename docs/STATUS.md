@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 1 - Manual story ingestion and canonical models.
+Phase 2 - Script transformation and review artifacts.
 
 ## Implemented
 
@@ -17,8 +17,15 @@ Phase 1 - Manual story ingestion and canonical models.
 - stable story IDs derived from normalized content
 - manual text import through `autotok story import --text`
 - UTF-8 file import through `autotok story import --file`
-- idempotent filesystem artifact storage under `data/sources/`
+- idempotent filesystem story storage under `data/sources/`
 - story inspection through `autotok story inspect`
+- canonical narration script and review dataclasses
+- provider-independent script transformation interface
+- deterministic local transformer with privacy redaction and duration budgeting
+- fake transformer test double
+- script artifacts under `data/scripts/`
+- script inspection and approval through `autotok script inspect` and
+  `autotok script approve`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -26,12 +33,13 @@ Phase 1 - Manual story ingestion and canonical models.
 
 ## Not Implemented
 
-The repository does not yet transform stories, call AI providers, generate audio,
-create subtitles, render video, ingest Reddit content, store data in a database,
-provide a UI, or publish content.
+The repository does not yet call real AI providers, generate audio, create
+subtitles, render video, ingest Reddit content, store data in a database, provide
+a UI, or publish content.
 
-## Phase 1 Acceptance Evidence
+## Phase 2 Acceptance Evidence
 
-A local story can be imported repeatedly into the same stable story ID, inspected
-through the CLI, and represented by validated metadata and preserved text
-artifacts without modifying the source file.
+An imported story can be transformed into a pending-review narration script,
+inspected through the CLI, approved locally, and represented by before/after
+artifacts, transformation history, privacy-redaction metadata, and a duration
+estimate.

@@ -2,10 +2,10 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 1: manual story ingestion and canonical models.
+currently complete through Phase 2: script transformation and review artifacts.
 
-No AI calls, audio generation, subtitle generation, video rendering, Reddit
-ingestion, database, UI, or publishing behavior exists yet.
+No AI provider calls, audio generation, subtitle generation, video rendering,
+Reddit ingestion, database, UI, or publishing behavior exists yet.
 
 ## Requirements
 
@@ -52,6 +52,19 @@ Inspect an imported story:
 autotok story inspect story_0123456789abcdef
 ```
 
+Transform an imported story into a reviewable narration script:
+
+```bash
+autotok story transform story_0123456789abcdef --target-seconds 60
+```
+
+Inspect and approve a generated script:
+
+```bash
+autotok script inspect script_0123456789abcdef
+autotok script approve script_0123456789abcdef
+```
+
 Use a specific local artifact workspace:
 
 ```bash
@@ -88,7 +101,7 @@ The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command.
 
 ## Story Artifacts
 
-Phase 1 stores imported stories under:
+Imported stories are stored under:
 
 ```text
 data/sources/story_<hash-prefix>/
@@ -102,6 +115,24 @@ Each imported story directory contains:
 
 Re-importing the same normalized story text is idempotent and returns the same
 story ID.
+
+## Script Artifacts
+
+Generated narration scripts are stored under:
+
+```text
+data/scripts/script_<hash-prefix>/
+```
+
+Each script directory contains:
+
+- `record.json`, review status, section data, duration budget, privacy report,
+  provider metadata, and transformation history
+- `before.txt`, the normalized source story text used for transformation
+- `script.txt`, the full hook/body/outro narration script
+
+Scripts are created with `pending_review` status and must be approved before
+later phases consume them.
 
 ## Documentation
 
