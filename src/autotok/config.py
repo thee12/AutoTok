@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from autotok.errors import ConfigurationError
@@ -22,8 +22,8 @@ class ConfigError(ConfigurationError):
 class AppConfig:
     """Validated application configuration.
 
-    Phase 0 intentionally keeps configuration small. Precedence is environment
-    variables first, then safe built-in defaults.
+    Precedence is command-line overrides, then environment variables, then safe
+    built-in defaults.
     """
 
     environment: str = DEFAULT_ENVIRONMENT
@@ -39,6 +39,15 @@ class AppConfig:
             or DEFAULT_ENVIRONMENT,
             log_level=source.get("AUTOTOK_LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper(),
             data_dir=Path(source.get("AUTOTOK_DATA_DIR", str(DEFAULT_DATA_DIR))).expanduser(),
+        )
+        config.validate()
+        return config
+
+    def with_overrides(self, *, data_dir: Path | None = None) -> AppConfig:
+        """Return a validated copy with command-line overrides applied."""
+        config = replace(
+            self,
+            data_dir=self.data_dir if data_dir is None else data_dir.expanduser(),
         )
         config.validate()
         return config
