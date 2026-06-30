@@ -17,3 +17,7 @@ class UserInputError(AutoTokError):
 
 class DependencyError(AutoTokError):
     """Raised when a required local dependency is unavailable."""
+
+
+class PersistenceError(AutoTokError):
+    """Raised when local artifact storage cannot be read or written."""

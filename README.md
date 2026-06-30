@@ -2,10 +2,10 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently in Phase 0: project bootstrap and architecture only.
+currently complete through Phase 1: manual story ingestion and canonical models.
 
-No story processing, AI calls, audio generation, subtitle generation, video
-rendering, Reddit ingestion, database, UI, or publishing behavior exists yet.
+No AI calls, audio generation, subtitle generation, video rendering, Reddit
+ingestion, database, UI, or publishing behavior exists yet.
 
 ## Requirements
 
@@ -34,10 +34,28 @@ Run the harmless diagnostic command:
 autotok doctor
 ```
 
-Print the diagnostic as JSON:
+Import manually supplied story text:
 
 ```bash
-autotok doctor --json
+autotok story import --text "A short approved story." --title "Optional title"
+```
+
+Import a local UTF-8 story file:
+
+```bash
+autotok story import --file path/to/story.txt
+```
+
+Inspect an imported story:
+
+```bash
+autotok story inspect story_0123456789abcdef
+```
+
+Use a specific local artifact workspace:
+
+```bash
+autotok --data-dir data story import --file path/to/story.txt --json
 ```
 
 Run all configured checks:
@@ -65,6 +83,25 @@ Current environment variables:
 - `AUTOTOK_ENV`, default `local`
 - `AUTOTOK_LOG_LEVEL`, default `INFO`
 - `AUTOTOK_DATA_DIR`, default `data`
+
+The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command.
+
+## Story Artifacts
+
+Phase 1 stores imported stories under:
+
+```text
+data/sources/story_<hash-prefix>/
+```
+
+Each imported story directory contains:
+
+- `record.json`, canonical metadata and text representation
+- `original.txt`, the source text as supplied or read from the UTF-8 file
+- `normalized.txt`, normalized story text used for stable IDs and hashes
+
+Re-importing the same normalized story text is idempotent and returns the same
+story ID.
 
 ## Documentation
 

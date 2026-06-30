@@ -29,6 +29,14 @@ def test_config_reads_environment_values() -> None:
     assert config.data_dir == Path("tmp/autotok")
 
 
+def test_config_applies_cli_data_dir_override() -> None:
+    config = AppConfig.from_environment({"AUTOTOK_DATA_DIR": "data"}).with_overrides(
+        data_dir=Path("other-data")
+    )
+
+    assert config.data_dir == Path("other-data")
+
+
 def test_config_rejects_invalid_log_level() -> None:
     with pytest.raises(ConfigError, match="AUTOTOK_LOG_LEVEL"):
         AppConfig.from_environment({"AUTOTOK_LOG_LEVEL": "TRACE"})
