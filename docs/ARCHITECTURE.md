@@ -1,8 +1,8 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 3 adds narration
-audio artifacts only; no subtitle generation, video rendering, database, UI, or
-publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 4 adds subtitle
+documents and exports only; no background-media selection, video rendering,
+database, UI, or publishing behavior exists yet.
 
 ## Current Shape
 
@@ -16,10 +16,16 @@ publishing behavior exists yet.
 - `autotok script narrate` creates or imports validated narration audio for an
   approved script.
 - `autotok audio inspect` loads and summarizes a narration audio record.
+- `autotok subtitle generate` creates a validated subtitle document from an
+  approved script and matching narration audio.
+- `autotok subtitle inspect` loads and summarizes a stored subtitle document.
+- `autotok subtitle export` exports an existing subtitle document as SRT, VTT,
+  or ASS.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/script_models.py` contains canonical script/review dataclasses.
 - `src/autotok/audio_models.py` contains canonical audio dataclasses.
+- `src/autotok/subtitle_models.py` contains canonical subtitle dataclasses.
 - `src/autotok/normalization.py` normalizes UTF-8 story text and computes stable
   content identifiers.
 - `src/autotok/ingestion.py` creates validated manual story records.
@@ -29,13 +35,17 @@ publishing behavior exists yet.
 - `src/autotok/tts.py` defines the provider-independent TTS interface, local WAV
   provider, fake test provider, and manual-audio record builder.
 - `src/autotok/audio_probe.py` probes and validates WAV PCM narration audio.
+- `src/autotok/subtitles.py` contains timing strategies, readability checks,
+  subtitle validation, and SRT/VTT/ASS export formatting.
 - `src/autotok/storage.py` persists story artifacts in the filesystem workspace.
 - `src/autotok/script_storage.py` persists script review artifacts.
 - `src/autotok/audio_storage.py` persists narration audio artifacts.
+- `src/autotok/subtitle_storage.py` persists subtitle documents and exports.
 - `src/autotok/logging.py` centralizes logging setup.
 - `src/autotok/errors.py` defines the base exception hierarchy.
 - `tests/` covers CLI, configuration, normalization, ingestion, storage,
-  transformation, script review, audio probing, TTS providers, and audio storage.
+  transformation, script review, audio probing, TTS providers, audio storage,
+  subtitle timing, subtitle exports, and subtitle CLI behavior.
 
 ## Configuration
 
@@ -49,15 +59,17 @@ safe built-in defaults:
 5. `AUTOTOK_TTS_PROVIDER`, default `local_wav`
 6. `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
 
-Secrets must remain in environment variables or local ignored files. Phase 3 does
-not require any credentials because the only configured provider is local.
+Secrets must remain in environment variables or local ignored files. Phase 4 does
+not require any credentials because subtitle generation uses local script/audio
+artifacts and optional manually supplied timing fixtures.
 
 ## Runtime Data
 
 Generated runtime data must stay outside source code. Phase 1 writes imported
 story artifacts under `data/sources/<story_id>/` by default. Phase 2 writes
 script review artifacts under `data/scripts/<script_id>/`. Phase 3 writes
-audio artifacts under `data/audio/<audio_id>/`.
+audio artifacts under `data/audio/<audio_id>/`. Phase 4 writes subtitle
+artifacts under `data/subtitles/<subtitle_id>/`.
 
 A stored story currently contains:
 
@@ -76,16 +88,23 @@ A stored audio artifact currently contains:
 - `record.json`, canonical audio metadata and provider/source details
 - `narration.wav`, validated WAV PCM narration audio
 
+A stored subtitle artifact currently contains:
+
+- `record.json`, canonical subtitle cues, timing metadata, readability settings,
+  validation status, and script/audio provenance
+- `subtitles.srt`, `subtitles.vtt`, or `subtitles.ass`, depending on the
+  requested export
+
 The repository ignores local runtime directories such as `data/`, `inputs/`,
 `work/`, `outputs/`, `logs/`, and `cache/`.
 
-## Phase 3 Boundaries
+## Phase 4 Boundaries
 
-Phase 3 intentionally stops at validated narration audio artifacts. The local WAV
-provider creates deterministic valid placeholder WAV audio without credentials,
-network access, or paid calls. Manually supplied WAV narration is validated and
-copied into the artifact workspace. Real speech-provider adapters, subtitles,
-media composition, and publication remain deferred.
+Phase 4 intentionally stops at subtitle documents and text-based subtitle
+exports. Provider word timings can be used when explicitly supplied; otherwise,
+AutoTok records that an approximate local fallback distributed script words
+across the audio duration. Subtitle rendering into video, background media,
+composition, and publication remain deferred.
 
 ## Deferred Architecture
 
@@ -93,9 +112,9 @@ The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- subtitle models and alignment;
 - FFmpeg/FFprobe wrappers;
 - authorized media cataloging;
+- burned-in subtitle rendering;
 - SQLite persistence;
 - review UI;
 - official publishing adapters.

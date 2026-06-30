@@ -2,10 +2,11 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 3: narration audio.
+currently complete through Phase 4: subtitle generation and alignment.
 
-No subtitle generation, video rendering, Reddit ingestion, database, UI, or
-publishing behavior exists yet. No paid provider calls are made by tests.
+No background-video selection, final video rendering, Reddit ingestion,
+database, UI, or publishing behavior exists yet. No paid provider calls are made
+by tests.
 
 ## Requirements
 
@@ -82,6 +83,25 @@ Inspect generated or imported narration audio:
 
 ```bash
 autotok audio inspect audio_0123456789abcdef
+```
+
+Generate validated subtitles for a narration script and audio artifact:
+
+```bash
+autotok subtitle generate script_0123456789abcdef audio_0123456789abcdef --format srt
+```
+
+Generate subtitles from provider-supplied word timings:
+
+```bash
+autotok subtitle generate script_0123456789abcdef audio_0123456789abcdef --word-timings path/to/word-timings.json --format vtt
+```
+
+Inspect or export a subtitle artifact:
+
+```bash
+autotok subtitle inspect subtitle_0123456789abcdef
+autotok subtitle export subtitle_0123456789abcdef --format ass
 ```
 
 Use a specific local artifact workspace:
@@ -171,6 +191,26 @@ Each audio directory contains:
 The `local_wav` provider is a credential-free local development provider that
 creates deterministic valid WAV placeholder audio. Real speech-provider adapters
 are deferred until explicitly selected in a later prompt.
+
+## Subtitle Artifacts
+
+Validated subtitle documents are stored under:
+
+```text
+data/subtitles/subtitle_<hash-prefix>/
+```
+
+Each subtitle directory contains:
+
+- `record.json`, canonical subtitle cues, timing strategy metadata, readability
+  settings, validation status, and script/audio provenance
+- `subtitles.srt`, `subtitles.vtt`, or `subtitles.ass`, depending on the
+  requested export format
+
+Phase 4 supports provider word timings when supplied as JSON and an explicit
+approximate fallback that distributes script words across the narration audio
+duration. Subtitle generation validates the script/audio relationship, cue
+timing, text readability constraints, and export format.
 
 ## Documentation
 

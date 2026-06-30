@@ -112,7 +112,7 @@ transformation history and duration estimate.
 
 Goal: produce validated narration audio from an approved script.
 
-Status: implemented in this working tree.
+Status: complete.
 
 In scope:
 
@@ -142,9 +142,38 @@ Excluded:
 Exit gate: an approved script can produce or accept a validated narration audio
 artifact.
 
-## Later Phases
+## Phase 4 - Subtitle Generation and Alignment
 
-Phase 4: subtitle generation and alignment.
+Goal: produce accurate, readable subtitle artifacts synchronized to narration.
+
+Status: complete.
+
+In scope:
+
+- canonical subtitle document dataclasses
+- provider word-timing strategy using supplied timing fixtures
+- explicit approximate fallback alignment based on narration audio duration
+- line breaking and readability rules
+- subtitle timing and cue validation
+- SRT, VTT, and ASS exports
+- subtitle artifact storage under `data/subtitles/`
+- CLI commands for subtitle generation, inspection, and export
+- timing fixtures and tests
+
+Excluded:
+
+- background-media selection
+- final video composition
+- burned-in subtitle rendering
+- Reddit or automated source ingestion
+- review UI
+- publishing
+- real transcription-provider calls
+
+Exit gate: narration audio and script produce a validated subtitle document that
+can be inspected and exported.
+
+## Later Phases
 
 Phase 5: background-media library.
 

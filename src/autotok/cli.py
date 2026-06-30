@@ -19,6 +19,18 @@ from autotok.models import StoryRecord
 from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
 from autotok.storage import StoredStory, StoryStore
+from autotok.subtitle_models import SubtitleExportFormat
+from autotok.subtitle_storage import StoredSubtitle, SubtitleStore
+from autotok.subtitles import (
+    DEFAULT_MAX_CHARS_PER_LINE,
+    DEFAULT_MAX_LINES_PER_CUE,
+    DEFAULT_MAX_WORDS_PER_CUE,
+    ApproximateAudioDurationStrategy,
+    ProviderWordTimingStrategy,
+    SubtitleTimingStrategy,
+    build_subtitle_document,
+    load_word_timings,
+)
 from autotok.transform import DEFAULT_TARGET_SECONDS, DeterministicScriptTransformer
 from autotok.tts import (
     LocalWavTtsProvider,
@@ -42,6 +54,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     subcommands = parser.add_subparsers(dest="command", required=True)
+    _add_doctor_parser(subcommands)
+    _add_story_parser(subcommands)
+    _add_script_parser(subcommands)
+    _add_audio_parser(subcommands)
+    _add_subtitle_parser(subcommands)
+    return parser
+
+
+def _add_doctor_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     doctor = subcommands.add_parser(
         "doctor",
         help="Run a harmless local diagnostic.",
@@ -54,6 +75,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.set_defaults(handler=run_doctor)
 
+
+def _add_story_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     story = subcommands.add_parser(
         "story",
         help="Import, inspect, and transform local manual stories.",
@@ -100,6 +123,8 @@ def build_parser() -> argparse.ArgumentParser:
     story_transform.add_argument("--json", action="store_true", help="Print script result as JSON.")
     story_transform.set_defaults(handler=run_story_transform)
 
+
+def _add_script_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     script = subcommands.add_parser(
         "script",
         help="Inspect, approve, and narrate reviewable narration scripts.",
@@ -149,6 +174,8 @@ def build_parser() -> argparse.ArgumentParser:
     script_narrate.add_argument("--json", action="store_true", help="Print audio record as JSON.")
     script_narrate.set_defaults(handler=run_script_narrate)
 
+
+def _add_audio_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     audio = subcommands.add_parser(
         "audio",
         help="Inspect validated narration audio artifacts.",
@@ -161,7 +188,78 @@ def build_parser() -> argparse.ArgumentParser:
     audio_inspect.add_argument("audio_id", help="Generated or imported audio ID to inspect.")
     audio_inspect.add_argument("--json", action="store_true", help="Print audio record as JSON.")
     audio_inspect.set_defaults(handler=run_audio_inspect)
-    return parser
+
+
+def _add_subtitle_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    subtitle = subcommands.add_parser(
+        "subtitle",
+        help="Generate, inspect, and export subtitle documents.",
+    )
+    subtitle_subcommands = subtitle.add_subparsers(dest="subtitle_command", required=True)
+
+    subtitle_generate = subtitle_subcommands.add_parser(
+        "generate",
+        help="Generate a validated subtitle document from script and narration audio.",
+    )
+    subtitle_generate.add_argument("script_id", help="Script ID used for subtitle text.")
+    subtitle_generate.add_argument("audio_id", help="Narration audio ID used for timing.")
+    subtitle_generate.add_argument(
+        "--word-timings",
+        type=Path,
+        help="Optional provider word-timing JSON file.",
+    )
+    subtitle_generate.add_argument(
+        "--format",
+        choices=[item.value for item in SubtitleExportFormat],
+        default=SubtitleExportFormat.SRT.value,
+        help="Initial subtitle export format.",
+    )
+    subtitle_generate.add_argument(
+        "--max-chars-per-line",
+        type=int,
+        default=DEFAULT_MAX_CHARS_PER_LINE,
+        help="Maximum displayed characters per subtitle line.",
+    )
+    subtitle_generate.add_argument(
+        "--max-lines-per-cue",
+        type=int,
+        default=DEFAULT_MAX_LINES_PER_CUE,
+        help="Maximum displayed lines per subtitle cue.",
+    )
+    subtitle_generate.add_argument(
+        "--max-words-per-cue",
+        type=int,
+        default=DEFAULT_MAX_WORDS_PER_CUE,
+        help="Maximum words grouped into a subtitle cue.",
+    )
+    subtitle_generate.add_argument(
+        "--json", action="store_true", help="Print subtitle record as JSON."
+    )
+    subtitle_generate.set_defaults(handler=run_subtitle_generate)
+
+    subtitle_inspect = subtitle_subcommands.add_parser(
+        "inspect",
+        help="Inspect a generated subtitle document.",
+    )
+    subtitle_inspect.add_argument("subtitle_id", help="Subtitle document ID to inspect.")
+    subtitle_inspect.add_argument(
+        "--json", action="store_true", help="Print subtitle record as JSON."
+    )
+    subtitle_inspect.set_defaults(handler=run_subtitle_inspect)
+
+    subtitle_export = subtitle_subcommands.add_parser(
+        "export",
+        help="Export an existing subtitle document to another format.",
+    )
+    subtitle_export.add_argument("subtitle_id", help="Subtitle document ID to export.")
+    subtitle_export.add_argument(
+        "--format",
+        choices=[item.value for item in SubtitleExportFormat],
+        required=True,
+        help="Subtitle export format to write.",
+    )
+    subtitle_export.add_argument("--json", action="store_true", help="Print export path as JSON.")
+    subtitle_export.set_defaults(handler=run_subtitle_export)
 
 
 def run_doctor(args: argparse.Namespace) -> int:
@@ -348,6 +446,74 @@ def run_audio_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_subtitle_generate(args: argparse.Namespace) -> int:
+    """Generate a subtitle document from a script/audio pair."""
+    config = _load_config(args)
+    script = ScriptStore(config.data_dir).load(args.script_id).record
+    audio = AudioStore(config.data_dir).load(args.audio_id).record
+    export_format = SubtitleExportFormat(args.format)
+    timing_strategy: SubtitleTimingStrategy
+    if args.word_timings is None:
+        timing_strategy = ApproximateAudioDurationStrategy()
+    else:
+        timing_strategy = ProviderWordTimingStrategy(load_word_timings(args.word_timings))
+    document = build_subtitle_document(
+        script=script,
+        audio=audio,
+        timing_strategy=timing_strategy,
+        export_format=export_format,
+        max_chars_per_line=args.max_chars_per_line,
+        max_lines_per_cue=args.max_lines_per_cue,
+        max_words_per_cue=args.max_words_per_cue,
+    )
+    stored = SubtitleStore(config.data_dir).save(document)
+    payload = _stored_subtitle_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Subtitle document: {stored.document.subtitle_id}")
+        print(f"Status: {status}")
+        print(f"Timing strategy: {stored.document.metadata.timing_strategy.value}")
+        print(f"Approximate: {stored.document.metadata.approximate}")
+        print(f"Cues: {len(stored.document.cues)}")
+        print(f"Record: {stored.record_path}")
+        print(f"Export: {stored.export_path}")
+    return 0
+
+
+def run_subtitle_inspect(args: argparse.Namespace) -> int:
+    """Inspect a stored subtitle document."""
+    config = _load_config(args)
+    stored = SubtitleStore(config.data_dir).load(args.subtitle_id)
+    payload = _stored_subtitle_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        document = stored.document
+        print(f"Subtitle document: {document.subtitle_id}")
+        print(f"Script: {document.script_id}")
+        print(f"Audio: {document.audio_id}")
+        print(f"Timing strategy: {document.metadata.timing_strategy.value}")
+        print(f"Approximate: {document.metadata.approximate}")
+        print(f"Cues: {len(document.cues)}")
+        print(f"Record: {stored.record_path}")
+        print(f"Export: {stored.export_path}")
+    return 0
+
+
+def run_subtitle_export(args: argparse.Namespace) -> int:
+    """Export a stored subtitle document to a requested format."""
+    config = _load_config(args)
+    export_format = SubtitleExportFormat(args.format)
+    export_path = SubtitleStore(config.data_dir).export(args.subtitle_id, export_format)
+    if args.json:
+        print(json.dumps({"subtitle_id": args.subtitle_id, "export": str(export_path)}, indent=2))
+    else:
+        print(f"Exported subtitle: {export_path}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Execute the CLI and return a process exit code."""
     parser = build_parser()
@@ -410,6 +576,16 @@ def _stored_audio_payload(stored: StoredAudio) -> dict[str, Any]:
     payload["artifacts"] = {
         "record": str(stored.record_path),
         "audio": str(stored.audio_path),
+    }
+    return payload
+
+
+def _stored_subtitle_payload(stored: StoredSubtitle) -> dict[str, Any]:
+    payload = stored.document.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {
+        "record": str(stored.record_path),
+        "export": str(stored.export_path),
     }
     return payload
 

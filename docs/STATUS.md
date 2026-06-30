@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 3 - Narration audio.
+Phase 4 - Subtitle generation and alignment.
 
 ## Implemented
 
@@ -36,6 +36,14 @@ Phase 3 - Narration audio.
 - narration audio artifacts under `data/audio/`
 - narration and audio inspection through `autotok script narrate` and
   `autotok audio inspect`
+- canonical subtitle document dataclasses
+- provider word-timing and approximate audio-duration timing strategies
+- subtitle readability validation and cue timing validation
+- SRT, VTT, and ASS subtitle exports
+- subtitle artifacts under `data/subtitles/`
+- subtitle generation, inspection, and export through
+  `autotok subtitle generate`, `autotok subtitle inspect`, and
+  `autotok subtitle export`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -43,12 +51,13 @@ Phase 3 - Narration audio.
 
 ## Not Implemented
 
-The repository does not yet create subtitles, render video, ingest Reddit
+The repository does not yet select background media, render video, ingest Reddit
 content, store data in a database, provide a UI, or publish content. It also does
-not call real paid/cloud TTS providers.
+not call real paid/cloud TTS or transcription providers.
 
-## Phase 3 Acceptance Evidence
+## Phase 4 Acceptance Evidence
 
-An approved script can produce deterministic local WAV narration audio, accept a
-manually supplied WAV narration file, validate audio metadata, store the artifact
-locally, and inspect the resulting audio record through the CLI.
+An approved script and matching narration audio can produce a validated subtitle
+document, store it locally, inspect it through the CLI, and export SRT, VTT, or
+ASS subtitle files. Provider word timings are supported through a local JSON
+fixture, and approximate alignment is explicitly recorded when used.
