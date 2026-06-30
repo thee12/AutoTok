@@ -1,6 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 7 adds approved public source discovery and import while keeping the rendering pipeline local-first; no database, UI, or publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 8 adds local scoring, deduplication, and content gates while keeping the rendering pipeline local-first; no database, UI, or publishing behavior exists yet.
 
 ## Current Shape
 
@@ -11,6 +11,9 @@ AutoTok is being built as a local-first modular monolith. Phase 7 adds approved 
 - `autotok source discover reddit` discovers approved public Reddit posts through authenticated Data API access or a local listing fixture.
 - `autotok source inspect` loads and summarizes a stored source discovery run.
 - `autotok source import` imports one discovered post as a canonical story record.
+- `autotok story assess` writes a deterministic content gate decision for a story.
+- `autotok story gate` inspects a stored content gate decision.
+- `autotok story override` appends a manual override event to the gate trail.
 - `autotok story transform` creates a reviewable narration script from a story.
 - `autotok script inspect` loads and summarizes a generated script record.
 - `autotok script approve` marks a generated script approved for later phases.
@@ -32,6 +35,9 @@ AutoTok is being built as a local-first modular monolith. Phase 7 adds approved 
 - `autotok render inspect` loads and summarizes a completed render manifest.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
+- `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
+- `src/autotok/content_gates.py` contains deterministic local scoring and gate rules.
+- `src/autotok/content_gate_storage.py` persists content gate artifacts.
 - `src/autotok/source_models.py` contains source discovery dataclasses.
 - `src/autotok/source_adapters.py` contains the Phase 7 Reddit Data API adapter, pagination, rate-limit capture, and filtering.
 - `src/autotok/source_ingestion.py` converts discovered posts into canonical story records.
@@ -116,6 +122,12 @@ A stored source discovery currently contains:
   pagination state, cache hit count, and rate-limit header snapshots
 - `raw_pages/page_*.json`, raw listing responses saved for local inspection
 
+A stored content gate currently contains:
+
+- `record.json`, quality score components, duration suitability, duplicate
+  matches, content warnings, reject reasons, review flags, deterministic
+  fingerprints, gate decision, effective decision, and manual override events
+
 A stored script currently contains:
 
 - `record.json`, canonical script metadata and review status
@@ -157,11 +169,11 @@ A stored render package currently contains:
 The repository ignores local runtime directories such as `data/`, `inputs/`,
 `work/`, `outputs/`, `logs/`, and `cache/`.
 
-## Phase 7 Boundaries
+## Phase 8 Boundaries
 
-Phase 7 discovers approved public Reddit posts and imports selected posts into the existing canonical story store. Live access uses Reddit OAuth configuration, descriptive User-Agent headers, pagination via listing cursors, timeouts, local raw retrieval cache entries, and rate-limit header capture. It filters deleted, removed, empty, and age-restricted posts and keeps minimal provenance without storing author identifiers.
+Phase 8 assesses stories with deterministic local rules before production use. It records exact duplicate matches by content hash, near-duplicate matches by token-set similarity, quality score components, duration suitability, privacy and policy warnings, reject reasons, review flags, and a manual override trail. Discovered Reddit stories must have an approved effective gate decision before transformation; manual stories remain transformable unless a stored gate exists and is not approved.
 
-Scoring, deduplication, content gates, persistent jobs, review UI, scheduling, publishing, and engagement automation remain deferred.
+Persistent jobs, batch orchestration, review UI, scheduling, publishing, analytics, and engagement automation remain deferred.
 
 ## Deferred Architecture
 
@@ -169,6 +181,6 @@ The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- SQLite persistence;
+- SQLite persistence and batch orchestration;
 - review UI;
 - official publishing adapters.

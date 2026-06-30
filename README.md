@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 7: approved public source discovery and import.
+currently complete through Phase 8: deterministic scoring, deduplication, and content gates.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. No database, UI, or publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. No database, UI, or publishing behavior exists yet. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -70,6 +70,14 @@ Inspect a discovery run and import one discovered post as a canonical story:
 ```bash
 autotok source inspect discovery_0123456789abcdef
 autotok source import discovery_0123456789abcdef t3_example
+```
+
+Score a story, inspect its gate decision, or append a manual override:
+
+```bash
+autotok story assess story_0123456789abcdef
+autotok story gate story_0123456789abcdef
+autotok story override story_0123456789abcdef --decision approved --reason "Reviewed locally"
 ```
 
 Transform an imported story into a reviewable narration script:
@@ -224,6 +232,22 @@ Raw live retrieval responses may also be cached under:
 ```text
 data/cache/source_retrieval/reddit/
 ```
+
+## Content Gate Artifacts
+
+Story content gate records are stored under:
+
+```text
+data/content_gates/story_<hash-prefix>/
+```
+
+Each gate directory contains `record.json` with deterministic quality scoring,
+exact and near-duplicate signals, normalized fingerprints, estimated narration
+duration suitability, content warnings, reject reasons, review flags, and manual
+override events. Discovered Reddit stories must have an approved effective gate
+decision before `autotok story transform` will run. Manual stories can still be
+transformed without a gate unless a stored gate exists and is not approved.
+
 ## Script Artifacts
 
 Generated narration scripts are stored under:
@@ -325,9 +349,10 @@ Each render directory contains:
 - `work/subtitles.ass`, the subtitle file passed to FFmpeg for rendering
 
 Phase 6 completes the first local MVP. The output is saved for human review.
-Phase 7 adds approved public source discovery and import only; AutoTok still
-does not score discovered content, run batch jobs, provide a review dashboard,
-publish, schedule, or automate engagement.
+Phase 7 adds approved public source discovery and import. Phase 8 adds local
+scoring, duplicate detection, review flags, and content gates before discovered
+stories enter transformation. AutoTok still does not run persistent jobs, provide
+a review dashboard, publish, schedule, or automate engagement.
 
 ## Documentation
 

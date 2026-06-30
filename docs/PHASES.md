@@ -274,9 +274,41 @@ Excluded:
 Exit gate: approved source posts can be discovered and imported as the same
 canonical source records used by manual ingestion.
 
-## Later Phases
+## Phase 8 - Scoring, Deduplication, and Content Gates
 
-Phase 8: scoring, deduplication, and content gates.
+Goal: prevent low-quality, repeated, sensitive, or unsuitable stories from
+automatically entering production.
+
+Status: complete.
+
+In scope:
+
+- exact duplicate detection using content hashes
+- normalized-content and token fingerprints
+- near-duplicate detection using token-set similarity
+- configurable deterministic quality scoring
+- duration suitability checks
+- content warnings, reject reasons, and review flags
+- policy and privacy review flags
+- manual override trail
+- filesystem content gate artifacts under `data/content_gates/`
+- CLI commands for assessment, inspection, and override
+- transform-time enforcement for discovered Reddit stories
+- tests for scoring, duplicate scenarios, CLI behavior, and gate enforcement
+
+Excluded:
+
+- persistent jobs or batch orchestration
+- database persistence
+- review dashboard or UI
+- automated publishing or scheduling
+- automated engagement
+- analytics feedback
+
+Exit gate: every assessed story receives a reproducible decision and explanation
+before transformation.
+
+## Later Phases
 
 Phase 9: persistent orchestration and batch generation.
 

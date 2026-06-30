@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 7 - Approved Reddit and source ingestion.
+Phase 8 - Scoring, deduplication, and content gates.
 
 ## Implemented
 
@@ -76,6 +76,20 @@ Phase 7 - Approved Reddit and source ingestion.
   used by manual ingestion
 - source discovery, inspection, and import through `autotok source discover
   reddit`, `autotok source inspect`, and `autotok source import`
+- deterministic content gate dataclasses and local scoring rules
+- exact duplicate detection using content hashes
+- near-duplicate detection using token-set similarity
+- normalized-content and token fingerprints for gate records
+- quality scoring with length, structure, readability, originality, and safety
+  components
+- duration suitability checks for story length
+- privacy and policy content warnings with review/reject severities
+- reject reasons and review flags for every assessed story
+- manual override trail with reviewer, reason, decision, and timestamp
+- content gate artifacts under `data/content_gates/`
+- content gate assessment, inspection, and override through `autotok story
+  assess`, `autotok story gate`, and `autotok story override`
+- transform-time gate enforcement for discovered Reddit stories
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -83,8 +97,8 @@ Phase 7 - Approved Reddit and source ingestion.
 
 ## Not Implemented
 
-The repository does not yet score or deduplicate discovered content, store data in a database, provide a UI, publish content, schedule posts, automate engagement, or run persistent jobs. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not yet store data in a database, provide a UI, publish content, schedule posts, automate engagement, run persistent jobs, or batch-orchestrate pipeline stages. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 7 Acceptance Evidence
+## Phase 8 Acceptance Evidence
 
-Approved public Reddit posts can be discovered through `autotok source discover reddit` using either authenticated live API configuration or local fixture JSON. Discovery runs filter unusable posts, preserve source provenance, write raw retrieval/cache artifacts, and can be inspected with `autotok source inspect`. A selected discovered post can be imported with `autotok source import` as a canonical `story_*` record compatible with the existing manual ingestion store.
+Every assessed story receives a reproducible content gate record through `autotok story assess`, including quality score components, duplicate signals, duration suitability, warnings, reject reasons, review flags, and effective decision. Gate records can be inspected with `autotok story gate` and manually overridden with `autotok story override`. Discovered Reddit stories must have an approved effective gate decision before `autotok story transform` will run.

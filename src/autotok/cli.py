@@ -12,6 +12,9 @@ from typing import Any
 from autotok import __version__
 from autotok.audio_storage import AudioStore, StoredAudio
 from autotok.config import AppConfig, ConfigError
+from autotok.content_gate_models import ContentGateConfig, ContentGateDecision
+from autotok.content_gate_storage import ContentGateStore, StoredContentGate
+from autotok.content_gates import assess_story, build_override_event
 from autotok.errors import AutoTokError, UserInputError
 from autotok.ingestion import build_manual_file_record, build_manual_text_record
 from autotok.logging import configure_logging
@@ -24,7 +27,7 @@ from autotok.media_selection import (
     select_background_clip,
 )
 from autotok.media_storage import MediaStore, StoredClip, StoredMedia
-from autotok.models import StoryRecord
+from autotok.models import SourceType, StoryRecord
 from autotok.render import build_render_spec, render_video_package
 from autotok.render_storage import RenderStore, StoredRender
 from autotok.script_models import NarrationScriptRecord
@@ -145,6 +148,69 @@ def _add_story_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentP
     )
     story_transform.add_argument("--json", action="store_true", help="Print script result as JSON.")
     story_transform.set_defaults(handler=run_story_transform)
+
+    story_assess = story_subcommands.add_parser(
+        "assess",
+        help="Score a story and write its content gate decision.",
+    )
+    story_assess.add_argument("story_id", help="Story ID to assess before transformation.")
+    story_assess.add_argument("--min-words", type=int, default=ContentGateConfig().min_words)
+    story_assess.add_argument("--max-words", type=int, default=ContentGateConfig().max_words)
+    story_assess.add_argument(
+        "--min-duration-seconds",
+        type=int,
+        default=ContentGateConfig().min_duration_seconds,
+    )
+    story_assess.add_argument(
+        "--max-duration-seconds",
+        type=int,
+        default=ContentGateConfig().max_duration_seconds,
+    )
+    story_assess.add_argument(
+        "--auto-approve-min-score",
+        type=int,
+        default=ContentGateConfig().auto_approve_min_score,
+    )
+    story_assess.add_argument(
+        "--reject-below-score",
+        type=int,
+        default=ContentGateConfig().reject_below_score,
+    )
+    story_assess.add_argument(
+        "--near-duplicate-threshold",
+        type=float,
+        default=ContentGateConfig().near_duplicate_threshold,
+    )
+    story_assess.add_argument("--json", action="store_true", help="Print gate result as JSON.")
+    story_assess.set_defaults(handler=run_story_assess)
+
+    story_gate = story_subcommands.add_parser(
+        "gate",
+        help="Inspect a stored content gate decision for a story.",
+    )
+    story_gate.add_argument("story_id", help="Story ID with a stored gate decision.")
+    story_gate.add_argument("--json", action="store_true", help="Print gate record as JSON.")
+    story_gate.set_defaults(handler=run_story_gate)
+
+    story_override = story_subcommands.add_parser(
+        "override",
+        help="Append a manual override to a story content gate.",
+    )
+    story_override.add_argument("story_id", help="Story ID with a stored gate decision.")
+    story_override.add_argument(
+        "--decision",
+        choices=[item.value for item in ContentGateDecision],
+        required=True,
+        help="Manual effective decision to apply.",
+    )
+    story_override.add_argument("--reason", required=True, help="Reason for the manual override.")
+    story_override.add_argument(
+        "--reviewer",
+        default="local_reviewer",
+        help="Local reviewer identifier for the override trail.",
+    )
+    story_override.add_argument("--json", action="store_true", help="Print gate record as JSON.")
+    story_override.set_defaults(handler=run_story_override)
 
 
 def _add_source_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -465,6 +531,76 @@ def _add_render_parser(subcommands: argparse._SubParsersAction[argparse.Argument
     render_inspect.set_defaults(handler=run_render_inspect)
 
 
+def run_story_assess(args: argparse.Namespace) -> int:
+    """Score a story and write its content gate decision."""
+    config = _load_config(args)
+    story_store = StoryStore(config.data_dir)
+    story = story_store.load(args.story_id).record
+    gate_config = _content_gate_config_from_args(args)
+    record = assess_story(
+        story,
+        existing_stories=tuple(stored.record for stored in story_store.list()),
+        config=gate_config,
+    )
+    stored = ContentGateStore(config.data_dir).save(record)
+    payload = _stored_content_gate_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Content gate: {stored.record.gate_id}")
+        print(f"Status: {status}")
+        print(f"Story: {stored.record.story_id}")
+        print(f"Decision: {stored.record.decision.value}")
+        print(f"Effective decision: {stored.record.effective_decision.value}")
+        print(f"Quality score: {stored.record.quality_score.total}")
+        print(f"Review flags: {', '.join(stored.record.review_flags) or '(none)'}")
+        print(f"Reject reasons: {', '.join(stored.record.reject_reasons) or '(none)'}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
+def run_story_gate(args: argparse.Namespace) -> int:
+    """Inspect a stored content gate decision."""
+    config = _load_config(args)
+    stored = ContentGateStore(config.data_dir).load_for_story(args.story_id)
+    payload = _stored_content_gate_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Content gate: {stored.record.gate_id}")
+        print(f"Story: {stored.record.story_id}")
+        print(f"Decision: {stored.record.decision.value}")
+        print(f"Effective decision: {stored.record.effective_decision.value}")
+        print(f"Quality score: {stored.record.quality_score.total}")
+        print(f"Duplicates: {len(stored.record.duplicate_matches)}")
+        print(f"Warnings: {len(stored.record.warnings)}")
+        print(f"Overrides: {len(stored.record.override_events)}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
+def run_story_override(args: argparse.Namespace) -> int:
+    """Append a manual content gate override event."""
+    config = _load_config(args)
+    event = build_override_event(
+        decision=ContentGateDecision(args.decision),
+        reason=args.reason,
+        reviewer=args.reviewer,
+    )
+    stored = ContentGateStore(config.data_dir).append_override(args.story_id, event)
+    payload = _stored_content_gate_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Content gate: {stored.record.gate_id}")
+        print(f"Story: {stored.record.story_id}")
+        print(f"Effective decision: {stored.record.effective_decision.value}")
+        print(f"Overrides: {len(stored.record.override_events)}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
 def run_source_discover_reddit(args: argparse.Namespace) -> int:
     """Discover approved Reddit posts and cache the discovery run."""
     config = _load_config(args)
@@ -622,6 +758,7 @@ def run_story_transform(args: argparse.Namespace) -> int:
     """Transform a stored story into a reviewable narration script."""
     config = _load_config(args)
     story = StoryStore(config.data_dir).load(args.story_id).record
+    _assert_story_transform_gate(config, story)
     transformer = _load_transformer(args.provider)
     script = transformer.transform(story, target_seconds=args.target_seconds)
     stored = ScriptStore(config.data_dir).save(script, before_text=story.normalized_text)
@@ -957,6 +1094,42 @@ def _load_tts_provider(provider: str) -> LocalWavTtsProvider:
     if provider == "local_wav":
         return LocalWavTtsProvider()
     raise UserInputError(f"Unsupported TTS provider: {provider}")
+
+
+def _content_gate_config_from_args(args: argparse.Namespace) -> ContentGateConfig:
+    return ContentGateConfig(
+        min_words=args.min_words,
+        max_words=args.max_words,
+        min_duration_seconds=args.min_duration_seconds,
+        max_duration_seconds=args.max_duration_seconds,
+        auto_approve_min_score=args.auto_approve_min_score,
+        reject_below_score=args.reject_below_score,
+        near_duplicate_threshold=args.near_duplicate_threshold,
+    )
+
+
+def _assert_story_transform_gate(config: AppConfig, story: StoryRecord) -> None:
+    try:
+        stored = ContentGateStore(config.data_dir).load_for_story(story.story_id)
+    except UserInputError as exc:
+        if story.source.source_type is SourceType.REDDIT_POST:
+            raise UserInputError(
+                "Discovered stories must pass `autotok story assess` before transformation."
+            ) from exc
+        return
+
+    if stored.record.effective_decision is not ContentGateDecision.APPROVED:
+        raise UserInputError(
+            "Story content gate must be approved before transformation; "
+            f"current effective decision is {stored.record.effective_decision.value}."
+        )
+
+
+def _stored_content_gate_payload(stored: StoredContentGate) -> dict[str, Any]:
+    payload = stored.record.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {"record": str(stored.record_path)}
+    return payload
 
 
 def _stored_source_discovery_payload(stored: StoredSourceDiscovery) -> dict[str, Any]:

@@ -98,6 +98,20 @@ class StoryStore:
             created=False,
         )
 
+    def list(self) -> tuple[StoredStory, ...]:
+        """Load all stored stories in deterministic ID order."""
+        if not self.sources_dir.exists():
+            return ()
+        stories: list[StoredStory] = []
+        for record_dir in sorted(self.sources_dir.glob("story_*")):
+            if not record_dir.is_dir():
+                continue
+            try:
+                stories.append(self.load(record_dir.name))
+            except UserInputError:
+                continue
+        return tuple(stories)
+
     def _record_dir(self, story_id: str) -> Path:
         _validate_story_id(story_id)
         return self.sources_dir / story_id
