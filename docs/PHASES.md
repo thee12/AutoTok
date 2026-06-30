@@ -308,9 +308,31 @@ Excluded:
 Exit gate: every assessed story receives a reproducible decision and explanation
 before transformation.
 
-## Later Phases
+## Phase 9 - Persistent Orchestration and Batch Generation
 
-Phase 9: persistent orchestration and batch generation.
+Status: in progress checkpoint.
+
+Checkpoint implemented:
+
+- SQLite schema initialization and version check
+- persistent job, stage, attempt, and artifact dataclasses
+- local job store create/load/list/update operations
+- attempt start/finish tracking
+- artifact reference persistence
+- focused SQLite persistence tests
+
+Remaining:
+
+- idempotent stage execution
+- retries for transient failures
+- resume from failed stage
+- batch limits and local concurrency controls
+- run manifests
+- cleanup and retention commands
+- crash-recovery tests
+- CLI commands for job creation, inspection, and resume
+
+## Later Phases
 
 Phase 10: local review dashboard.
 

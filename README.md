@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 8: deterministic scoring, deduplication, and content gates.
+currently complete through Phase 8, with a Phase 9 checkpoint for SQLite job persistence.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. No database, UI, or publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. The Phase 9 checkpoint introduces a local SQLite job database foundation, but resumable orchestration is not complete yet. No UI or publishing behavior exists yet. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -353,6 +353,13 @@ Phase 7 adds approved public source discovery and import. Phase 8 adds local
 scoring, duplicate detection, review flags, and content gates before discovered
 stories enter transformation. AutoTok still does not run persistent jobs, provide
 a review dashboard, publish, schedule, or automate engagement.
+
+## Phase 9 Checkpoint
+
+The current Phase 9 checkpoint adds internal SQLite persistence under
+`data/jobs.sqlite3` for jobs, stages, attempts, and artifact references. It does
+not yet expose job CLI commands, execute resumable stages, run batches, or write
+run manifests.
 
 ## Documentation
 

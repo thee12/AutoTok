@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 8 - Scoring, deduplication, and content gates.
+Phase 9 - Persistent orchestration and batch generation (checkpoint in progress).
 
 ## Implemented
 
@@ -90,6 +90,10 @@ Phase 8 - Scoring, deduplication, and content gates.
 - content gate assessment, inspection, and override through `autotok story
   assess`, `autotok story gate`, and `autotok story override`
 - transform-time gate enforcement for discovered Reddit stories
+- Phase 9 checkpoint SQLite job persistence foundation
+- persistent job, stage, attempt, and artifact dataclasses
+- local `data/jobs.sqlite3` schema initialization and version check
+- job/stage status updates, attempt tracking, artifact references, and ordered job queries
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -97,8 +101,8 @@ Phase 8 - Scoring, deduplication, and content gates.
 
 ## Not Implemented
 
-The repository does not yet store data in a database, provide a UI, publish content, schedule posts, automate engagement, run persistent jobs, or batch-orchestrate pipeline stages. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not yet execute resumable jobs, run batch orchestration, provide cleanup/retention commands, expose job CLI commands, provide a UI, publish content, schedule posts, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 8 Acceptance Evidence
+## Phase 9 Checkpoint Evidence
 
-Every assessed story receives a reproducible content gate record through `autotok story assess`, including quality score components, duplicate signals, duration suitability, warnings, reject reasons, review flags, and effective decision. Gate records can be inspected with `autotok story gate` and manually overridden with `autotok story override`. Discovered Reddit stories must have an approved effective gate decision before `autotok story transform` will run.
+The Phase 9 checkpoint adds a SQLite-backed `JobStore` foundation with schema versioning, jobs, stages, attempts, and artifact references. Focused tests cover initialization, status updates, attempts, artifact persistence, ordered listing, and missing-record errors. Phase 9 is not complete yet: resumable stage execution, retries, batch limits, manifests, cleanup/retention, crash recovery, and CLI commands remain for the next pass.

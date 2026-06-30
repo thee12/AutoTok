@@ -38,6 +38,8 @@ AutoTok is being built as a local-first modular monolith. Phase 8 adds local sco
 - `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
 - `src/autotok/content_gates.py` contains deterministic local scoring and gate rules.
 - `src/autotok/content_gate_storage.py` persists content gate artifacts.
+- `src/autotok/job_models.py` contains the Phase 9 checkpoint job, stage, attempt, and artifact dataclasses.
+- `src/autotok/job_storage.py` contains the Phase 9 checkpoint SQLite persistence foundation.
 - `src/autotok/source_models.py` contains source discovery dataclasses.
 - `src/autotok/source_adapters.py` contains the Phase 7 Reddit Data API adapter, pagination, rate-limit capture, and filtering.
 - `src/autotok/source_ingestion.py` converts discovered posts into canonical story records.
@@ -173,7 +175,7 @@ The repository ignores local runtime directories such as `data/`, `inputs/`,
 
 Phase 8 assesses stories with deterministic local rules before production use. It records exact duplicate matches by content hash, near-duplicate matches by token-set similarity, quality score components, duration suitability, privacy and policy warnings, reject reasons, review flags, and a manual override trail. Discovered Reddit stories must have an approved effective gate decision before transformation; manual stories remain transformable unless a stored gate exists and is not approved.
 
-Persistent jobs, batch orchestration, review UI, scheduling, publishing, analytics, and engagement automation remain deferred.
+Phase 9 is in progress. The current checkpoint provides SQLite persistence for jobs, stages, attempts, and artifact references. Resumable execution, retries, batch orchestration, cleanup/retention commands, run manifests, review UI, scheduling, publishing, analytics, and engagement automation remain deferred.
 
 ## Deferred Architecture
 
