@@ -10,15 +10,16 @@ SCHEMA_VERSION = 1
 
 
 class SourceType(StrEnum):
-    """Supported Phase 1 source types."""
+    """Supported canonical source types."""
 
     MANUAL_TEXT = "manual_text"
     MANUAL_FILE = "manual_file"
+    REDDIT_POST = "reddit_post"
 
 
 @dataclass(frozen=True, slots=True)
 class StorySource:
-    """Metadata describing where a manually imported story came from."""
+    """Metadata describing where an imported story came from."""
 
     source_type: SourceType
     imported_at: str
@@ -27,6 +28,10 @@ class StorySource:
     normalized_character_count: int
     title: str | None = None
     source_path: str | None = None
+    source_identifier: str | None = None
+    source_url: str | None = None
+    retrieved_at: str | None = None
+    source_label: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Serialize source metadata to JSON-compatible values."""
@@ -38,6 +43,10 @@ class StorySource:
             "normalized_character_count": self.normalized_character_count,
             "title": self.title,
             "source_path": self.source_path,
+            "source_identifier": self.source_identifier,
+            "source_url": self.source_url,
+            "retrieved_at": self.retrieved_at,
+            "source_label": self.source_label,
         }
 
     @classmethod
@@ -57,12 +66,16 @@ class StorySource:
             normalized_character_count=_required_int(data, "normalized_character_count"),
             title=_optional_str(data, "title"),
             source_path=_optional_str(data, "source_path"),
+            source_identifier=_optional_str(data, "source_identifier"),
+            source_url=_optional_str(data, "source_url"),
+            retrieved_at=_optional_str(data, "retrieved_at"),
+            source_label=_optional_str(data, "source_label"),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class StoryRecord:
-    """Canonical Phase 1 record for a manually imported story."""
+    """Canonical Phase 1+ record for an imported story."""
 
     story_id: str
     source: StorySource

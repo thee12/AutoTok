@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 6: the first local MVP render package.
+currently complete through Phase 7: approved public source discovery and import.
 
-No Reddit ingestion, database, UI, or publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. No database, UI, or publishing behavior exists yet. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -51,6 +51,25 @@ Inspect an imported story:
 
 ```bash
 autotok story inspect story_0123456789abcdef
+```
+
+Discover approved public Reddit posts with live OAuth-backed API access:
+
+```bash
+autotok source discover reddit --subreddit AskReddit --sort hot --limit 10
+```
+
+Discover from a local Reddit listing fixture without network access:
+
+```bash
+autotok source discover reddit --subreddit autotok_test --fixture-json tests/fixtures/reddit_listing.json
+```
+
+Inspect a discovery run and import one discovered post as a canonical story:
+
+```bash
+autotok source inspect discovery_0123456789abcdef
+autotok source import discovery_0123456789abcdef t3_example
 ```
 
 Transform an imported story into a reviewable narration script:
@@ -162,8 +181,11 @@ Current environment variables:
 - `AUTOTOK_DATA_DIR`, default `data`
 - `AUTOTOK_TTS_PROVIDER`, default `local_wav`
 - `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
+- `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional bearer token for live Reddit Data API discovery
+- `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
+- `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
 
-The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command.
+The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command. Reddit tokens are never printed by the CLI; `autotok doctor` reports only whether one is configured.
 
 ## Story Artifacts
 
@@ -182,6 +204,26 @@ Each imported story directory contains:
 Re-importing the same normalized story text is idempotent and returns the same
 story ID.
 
+## Source Discovery Artifacts
+
+Approved public source discovery runs are stored under:
+
+```text
+data/source_discovery/discovery_<hash-prefix>/
+```
+
+Each discovery directory contains:
+
+- `record.json`, filtered source-post metadata, query information, pagination state, rate-limit header snapshots, and source provenance
+- `raw_pages/page_001.json`, raw listing response cache material for inspection and reproducibility
+
+Live Reddit discovery uses the authenticated Reddit Data API configuration from environment variables and records rate-limit headers. Local fixture discovery uses `--fixture-json` and does not require credentials or network access. Phase 7 filters deleted, removed, empty, and age-restricted posts, keeps minimal provenance, and imports selected posts through the same `data/sources/story_<hash-prefix>/` store used by manual ingestion.
+
+Raw live retrieval responses may also be cached under:
+
+```text
+data/cache/source_retrieval/reddit/
+```
 ## Script Artifacts
 
 Generated narration scripts are stored under:
@@ -282,9 +324,10 @@ Each render directory contains:
   status, and provenance IDs
 - `work/subtitles.ass`, the subtitle file passed to FFmpeg for rendering
 
-Phase 6 completes the first local MVP. The output is saved for human review;
-AutoTok still does not publish, schedule, ingest Reddit content, or provide a
-review dashboard.
+Phase 6 completes the first local MVP. The output is saved for human review.
+Phase 7 adds approved public source discovery and import only; AutoTok still
+does not score discovered content, run batch jobs, provide a review dashboard,
+publish, schedule, or automate engagement.
 
 ## Documentation
 

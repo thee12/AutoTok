@@ -24,7 +24,11 @@ class PersistenceError(AutoTokError):
 
 
 class ProviderError(AutoTokError):
-    """Raised when an audio or AI provider request fails safely."""
+    """Raised when an external or local provider request fails safely."""
+
+
+class ProviderRateLimitError(ProviderError):
+    """Raised when an external provider reports a rate-limit response."""
 
 
 class RenderError(AutoTokError):

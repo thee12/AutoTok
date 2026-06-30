@@ -1,8 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 6 adds local
-portrait video render packages only; no Reddit ingestion, database, UI, or
-publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 7 adds approved public source discovery and import while keeping the rendering pipeline local-first; no database, UI, or publishing behavior exists yet.
 
 ## Current Shape
 
@@ -10,6 +8,9 @@ publishing behavior exists yet.
 - `autotok doctor` validates local configuration and prints a diagnostic summary.
 - `autotok story import` imports manually supplied text or a local UTF-8 file.
 - `autotok story inspect` loads and summarizes a stored story record.
+- `autotok source discover reddit` discovers approved public Reddit posts through authenticated Data API access or a local listing fixture.
+- `autotok source inspect` loads and summarizes a stored source discovery run.
+- `autotok source import` imports one discovered post as a canonical story record.
 - `autotok story transform` creates a reviewable narration script from a story.
 - `autotok script inspect` loads and summarizes a generated script record.
 - `autotok script approve` marks a generated script approved for later phases.
@@ -31,6 +32,9 @@ publishing behavior exists yet.
 - `autotok render inspect` loads and summarizes a completed render manifest.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
+- `src/autotok/source_models.py` contains source discovery dataclasses.
+- `src/autotok/source_adapters.py` contains the Phase 7 Reddit Data API adapter, pagination, rate-limit capture, and filtering.
+- `src/autotok/source_ingestion.py` converts discovered posts into canonical story records.
 - `src/autotok/script_models.py` contains canonical script/review dataclasses.
 - `src/autotok/audio_models.py` contains canonical audio dataclasses.
 - `src/autotok/subtitle_models.py` contains canonical subtitle dataclasses.
@@ -56,6 +60,7 @@ publishing behavior exists yet.
 - `src/autotok/render.py` builds FFmpeg command arguments, writes ASS subtitles,
   runs local rendering, probes output, and validates the portrait MP4.
 - `src/autotok/storage.py` persists story artifacts in the filesystem workspace.
+- `src/autotok/source_storage.py` persists source discovery runs and raw retrieval cache entries.
 - `src/autotok/script_storage.py` persists script review artifacts.
 - `src/autotok/audio_storage.py` persists narration audio artifacts.
 - `src/autotok/subtitle_storage.py` persists subtitle documents and exports.
@@ -82,10 +87,11 @@ safe built-in defaults:
 4. `AUTOTOK_LOG_LEVEL`, default `INFO`
 5. `AUTOTOK_TTS_PROVIDER`, default `local_wav`
 6. `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
+7. `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional live Reddit bearer token
+8. `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
+9. `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
 
-Secrets must remain in environment variables or local ignored files. Phase 6 does
-not require credentials because rendering only reads approved local artifacts and
-uses local FFmpeg/FFprobe executables.
+Secrets must remain in environment variables or local ignored files. Phase 7 live Reddit discovery requires an OAuth bearer token supplied by environment; fixture discovery and all automated tests remain credential-free. Rendering still only reads approved local artifacts and uses local FFmpeg/FFprobe executables.
 
 ## Runtime Data
 
@@ -103,6 +109,12 @@ A stored story currently contains:
 - `record.json`, canonical JSON representation
 - `original.txt`, original manually supplied text or file text
 - `normalized.txt`, normalized text used for hashing and stable IDs
+
+A stored source discovery currently contains:
+
+- `record.json`, filtered post metadata, source provenance, query information,
+  pagination state, cache hit count, and rate-limit header snapshots
+- `raw_pages/page_*.json`, raw listing responses saved for local inspection
 
 A stored script currently contains:
 
@@ -145,13 +157,11 @@ A stored render package currently contains:
 The repository ignores local runtime directories such as `data/`, `inputs/`,
 `work/`, `outputs/`, `logs/`, and `cache/`.
 
-## Phase 6 Boundaries
+## Phase 7 Boundaries
 
-Phase 6 completes the first local MVP by composing existing approved artifacts
-into a reviewable portrait MP4. It uses FFmpeg through explicit argument arrays,
-burns generated subtitles into the video, mixes narration audio, probes the
-output, and records a manifest. Automated source discovery, persistent jobs,
-review UI, scheduling, and publishing remain deferred.
+Phase 7 discovers approved public Reddit posts and imports selected posts into the existing canonical story store. Live access uses Reddit OAuth configuration, descriptive User-Agent headers, pagination via listing cursors, timeouts, local raw retrieval cache entries, and rate-limit header capture. It filters deleted, removed, empty, and age-restricted posts and keeps minimal provenance without storing author identifiers.
+
+Scoring, deduplication, content gates, persistent jobs, review UI, scheduling, publishing, and engagement automation remain deferred.
 
 ## Deferred Architecture
 

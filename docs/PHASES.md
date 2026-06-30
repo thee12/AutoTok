@@ -240,9 +240,41 @@ Excluded:
 Exit gate: one command can transform approved local inputs into a validated,
 reviewable short-form video package.
 
-## Later Phases
+## Phase 7 - Approved Reddit and Source Ingestion
 
-Phase 7: approved Reddit and source ingestion.
+Goal: add automated discovery from approved public sources without coupling source
+access to the rendering pipeline.
+
+Status: complete.
+
+In scope:
+
+- source-adapter interface
+- authenticated Reddit Data API adapter selected for live source access
+- local fixture discovery path for credential-free development and tests
+- Reddit OAuth token, User-Agent, and timeout configuration
+- pagination through listing cursors
+- rate-limit header capture and no rate-limit bypassing
+- filtering for deleted, removed, empty, and age-restricted posts
+- minimal source provenance without author identifier retention
+- source discovery records under `data/source_discovery/`
+- raw live retrieval cache under `data/cache/source_retrieval/reddit/`
+- CLI commands for discovery, inspection, and import
+- fixture-based unit and CLI tests
+
+Excluded:
+
+- automated publication
+- engagement automation
+- scoring, deduplication, and content gates
+- persistent jobs or batch orchestration
+- review UI
+- scraping private, deleted, age-restricted, or access-controlled content
+
+Exit gate: approved source posts can be discovered and imported as the same
+canonical source records used by manual ingestion.
+
+## Later Phases
 
 Phase 8: scoring, deduplication, and content gates.
 

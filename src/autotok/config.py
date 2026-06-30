@@ -13,6 +13,8 @@ DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_DATA_DIR = Path("data")
 DEFAULT_TTS_PROVIDER = "local_wav"
 DEFAULT_TTS_TIMEOUT_SECONDS = 30
+DEFAULT_REDDIT_USER_AGENT = "AutoTok/0.1 local-source-ingestion"
+DEFAULT_REDDIT_TIMEOUT_SECONDS = 20
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
 VALID_TTS_PROVIDERS = {"local_wav"}
 
@@ -34,11 +36,15 @@ class AppConfig:
     data_dir: Path = DEFAULT_DATA_DIR
     tts_provider: str = DEFAULT_TTS_PROVIDER
     tts_timeout_seconds: int = DEFAULT_TTS_TIMEOUT_SECONDS
+    reddit_oauth_token: str | None = None
+    reddit_user_agent: str = DEFAULT_REDDIT_USER_AGENT
+    reddit_timeout_seconds: int = DEFAULT_REDDIT_TIMEOUT_SECONDS
 
     @classmethod
     def from_environment(cls, environ: dict[str, str] | None = None) -> AppConfig:
         """Load configuration from environment variables and defaults."""
         source = os.environ if environ is None else environ
+        token = source.get("AUTOTOK_REDDIT_OAUTH_TOKEN")
         config = cls(
             environment=source.get("AUTOTOK_ENV", DEFAULT_ENVIRONMENT).strip()
             or DEFAULT_ENVIRONMENT,
@@ -50,6 +56,16 @@ class AppConfig:
                 source.get("AUTOTOK_TTS_TIMEOUT_SECONDS"),
                 default=DEFAULT_TTS_TIMEOUT_SECONDS,
                 name="AUTOTOK_TTS_TIMEOUT_SECONDS",
+            ),
+            reddit_oauth_token=token.strip() if token is not None and token.strip() else None,
+            reddit_user_agent=source.get(
+                "AUTOTOK_REDDIT_USER_AGENT", DEFAULT_REDDIT_USER_AGENT
+            ).strip()
+            or DEFAULT_REDDIT_USER_AGENT,
+            reddit_timeout_seconds=_parse_int(
+                source.get("AUTOTOK_REDDIT_TIMEOUT_SECONDS"),
+                default=DEFAULT_REDDIT_TIMEOUT_SECONDS,
+                name="AUTOTOK_REDDIT_TIMEOUT_SECONDS",
             ),
         )
         config.validate()
@@ -88,6 +104,10 @@ class AppConfig:
             raise ConfigError(f"AUTOTOK_TTS_PROVIDER must be one of: {allowed}.")
         if self.tts_timeout_seconds <= 0:
             raise ConfigError("AUTOTOK_TTS_TIMEOUT_SECONDS must be greater than zero.")
+        if not self.reddit_user_agent:
+            raise ConfigError("AUTOTOK_REDDIT_USER_AGENT must not be empty.")
+        if self.reddit_timeout_seconds <= 0:
+            raise ConfigError("AUTOTOK_REDDIT_TIMEOUT_SECONDS must be greater than zero.")
 
 
 def _parse_int(value: str | None, *, default: int, name: str) -> int:

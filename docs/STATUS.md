@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 6 - End-to-end vertical video rendering.
+Phase 7 - Approved Reddit and source ingestion.
 
 ## Implemented
 
@@ -61,6 +61,21 @@ Phase 6 - End-to-end vertical video rendering.
 - render packages under `data/renders/`
 - render creation and inspection through `autotok render create` and
   `autotok render inspect`
+- source discovery interface and Reddit Data API adapter
+- live Reddit source discovery using OAuth bearer token configuration,
+  descriptive User-Agent headers, timeouts, pagination, local raw retrieval
+  cache entries, and rate-limit header capture
+- local Reddit listing fixture discovery for credential-free tests and smoke
+  runs
+- filtering for deleted, removed, empty, and age-restricted Reddit posts
+- minimal source provenance for discovered posts without storing author
+  identifiers
+- source discovery artifacts under `data/source_discovery/`
+- raw source retrieval cache under `data/cache/source_retrieval/reddit/`
+- discovered-post import into the same canonical `data/sources/` story records
+  used by manual ingestion
+- source discovery, inspection, and import through `autotok source discover
+  reddit`, `autotok source inspect`, and `autotok source import`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -68,13 +83,8 @@ Phase 6 - End-to-end vertical video rendering.
 
 ## Not Implemented
 
-The repository does not yet ingest Reddit content, store data in a database,
-provide a UI, publish content, schedule posts, or run persistent jobs. It also
-does not call real paid/cloud TTS or transcription providers.
+The repository does not yet score or deduplicate discovered content, store data in a database, provide a UI, publish content, schedule posts, automate engagement, or run persistent jobs. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 6 Acceptance Evidence
+## Phase 7 Acceptance Evidence
 
-Approved local artifacts can be rendered into a validated portrait video package
-through `autotok render create`. The render stage writes a render spec, burned-in
-subtitle working file, MP4 output, and manifest, then probes the output for
-portrait dimensions, duration, audio stream presence, and file metadata.
+Approved public Reddit posts can be discovered through `autotok source discover reddit` using either authenticated live API configuration or local fixture JSON. Discovery runs filter unusable posts, preserve source provenance, write raw retrieval/cache artifacts, and can be inspected with `autotok source inspect`. A selected discovered post can be imported with `autotok source import` as a canonical `story_*` record compatible with the existing manual ingestion store.

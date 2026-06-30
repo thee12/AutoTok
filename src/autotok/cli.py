@@ -29,6 +29,15 @@ from autotok.render import build_render_spec, render_video_package
 from autotok.render_storage import RenderStore, StoredRender
 from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
+from autotok.source_adapters import (
+    REDDIT_ALLOWED_SORTS,
+    RedditDataApiAdapter,
+    RedditDiscoveryConfig,
+    discover_reddit_from_fixture,
+)
+from autotok.source_ingestion import build_source_post_record
+from autotok.source_models import DiscoveredSourcePost, SourceProvider
+from autotok.source_storage import SourceDiscoveryStore, SourceRetrievalCache, StoredSourceDiscovery
 from autotok.storage import StoredStory, StoryStore
 from autotok.subtitle_models import SubtitleExportFormat
 from autotok.subtitle_storage import StoredSubtitle, SubtitleStore
@@ -67,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     _add_doctor_parser(subcommands)
     _add_story_parser(subcommands)
+    _add_source_parser(subcommands)
     _add_script_parser(subcommands)
     _add_audio_parser(subcommands)
     _add_subtitle_parser(subcommands)
@@ -135,6 +145,62 @@ def _add_story_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentP
     )
     story_transform.add_argument("--json", action="store_true", help="Print script result as JSON.")
     story_transform.set_defaults(handler=run_story_transform)
+
+
+def _add_source_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    source = subcommands.add_parser(
+        "source",
+        help="Discover, inspect, and import approved public source posts.",
+    )
+    source_subcommands = source.add_subparsers(dest="source_command", required=True)
+
+    source_discover = source_subcommands.add_parser(
+        "discover",
+        help="Discover approved source posts without importing them as stories.",
+    )
+    provider_subcommands = source_discover.add_subparsers(dest="source_provider", required=True)
+    reddit = provider_subcommands.add_parser(
+        "reddit",
+        help="Discover public Reddit posts through the authenticated Data API or a fixture.",
+    )
+    reddit.add_argument("--subreddit", required=True, help="Subreddit name without the r/ prefix.")
+    reddit.add_argument(
+        "--sort",
+        choices=sorted(REDDIT_ALLOWED_SORTS),
+        default="hot",
+        help="Reddit listing sort to retrieve.",
+    )
+    reddit.add_argument("--limit", type=int, default=25, help="Posts requested per page.")
+    reddit.add_argument("--max-pages", type=int, default=1, help="Maximum listing pages to fetch.")
+    reddit.add_argument(
+        "--fixture-json",
+        type=Path,
+        help="Local Reddit listing JSON fixture to use instead of live network access.",
+    )
+    reddit.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Bypass the local raw retrieval cache for live Reddit requests.",
+    )
+    reddit.add_argument("--json", action="store_true", help="Print discovery result as JSON.")
+    reddit.set_defaults(handler=run_source_discover_reddit)
+
+    source_inspect = source_subcommands.add_parser(
+        "inspect",
+        help="Inspect a stored source discovery run.",
+    )
+    source_inspect.add_argument("discovery_id", help="Source discovery ID to inspect.")
+    source_inspect.add_argument("--json", action="store_true", help="Print discovery run as JSON.")
+    source_inspect.set_defaults(handler=run_source_inspect)
+
+    source_import = source_subcommands.add_parser(
+        "import",
+        help="Import one discovered post as a canonical story record.",
+    )
+    source_import.add_argument("discovery_id", help="Source discovery ID to import from.")
+    source_import.add_argument("source_id", help="Discovered source post ID, such as t3_example.")
+    source_import.add_argument("--json", action="store_true", help="Print imported story as JSON.")
+    source_import.set_defaults(handler=run_source_import)
 
 
 def _add_script_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -399,6 +465,82 @@ def _add_render_parser(subcommands: argparse._SubParsersAction[argparse.Argument
     render_inspect.set_defaults(handler=run_render_inspect)
 
 
+def run_source_discover_reddit(args: argparse.Namespace) -> int:
+    """Discover approved Reddit posts and cache the discovery run."""
+    config = _load_config(args)
+    reddit_config = RedditDiscoveryConfig(
+        subreddit=args.subreddit,
+        sort=args.sort,
+        limit=args.limit,
+        max_pages=args.max_pages,
+        user_agent=config.reddit_user_agent,
+        oauth_token=config.reddit_oauth_token,
+        timeout_seconds=config.reddit_timeout_seconds,
+        use_cache=not args.no_cache,
+    )
+    if args.fixture_json is None:
+        cache = SourceRetrievalCache(config.data_dir, SourceProvider.REDDIT)
+        result = RedditDataApiAdapter().discover(reddit_config, cache=cache)
+    else:
+        result = discover_reddit_from_fixture(args.fixture_json, reddit_config)
+
+    stored = SourceDiscoveryStore(config.data_dir).save(result.run, raw_pages=result.raw_pages)
+    payload = _stored_source_discovery_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Source discovery: {stored.record.discovery_id}")
+        print(f"Status: {status}")
+        print(f"Provider: {stored.record.provider.value}")
+        print(f"Posts: {len(stored.record.posts)}")
+        print(f"Cache hits: {stored.record.cache_hits}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
+def run_source_inspect(args: argparse.Namespace) -> int:
+    """Inspect a stored source discovery run."""
+    config = _load_config(args)
+    stored = SourceDiscoveryStore(config.data_dir).load(args.discovery_id)
+    payload = _stored_source_discovery_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Source discovery: {stored.record.discovery_id}")
+        print(f"Provider: {stored.record.provider.value}")
+        print(f"Created at: {stored.record.created_at}")
+        print(f"Posts: {len(stored.record.posts)}")
+        print(f"Record: {stored.record_path}")
+        for post in stored.record.posts[:5]:
+            print(f"- {post.source_id}: {_source_post_preview(post)}")
+    return 0
+
+
+def run_source_import(args: argparse.Namespace) -> int:
+    """Import a discovered source post as a canonical story record."""
+    config = _load_config(args)
+    discovery = SourceDiscoveryStore(config.data_dir).load(args.discovery_id)
+    post = _find_discovered_post(discovery.record.posts, args.source_id)
+    record = build_source_post_record(post)
+    stored = StoryStore(config.data_dir).save(record)
+    payload = _stored_story_payload(stored)
+    payload["source_discovery"] = {
+        "discovery_id": discovery.record.discovery_id,
+        "source_id": post.source_id,
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Imported discovered story: {stored.record.story_id}")
+        print(f"Status: {status}")
+        print(f"Source post: {post.source_id}")
+        print(f"Source URL: {post.source_url}")
+        print(f"Record: {stored.record_path}")
+    return 0
+
+
 def run_doctor(args: argparse.Namespace) -> int:
     """Run the harmless diagnostic command."""
     config = _load_config(args)
@@ -411,6 +553,9 @@ def run_doctor(args: argparse.Namespace) -> int:
         "data_dir": str(config.data_dir),
         "tts_provider": config.tts_provider,
         "tts_timeout_seconds": config.tts_timeout_seconds,
+        "reddit_user_agent": config.reddit_user_agent,
+        "reddit_oauth_token_configured": config.reddit_oauth_token is not None,
+        "reddit_timeout_seconds": config.reddit_timeout_seconds,
         "status": "ok",
     }
     if args.json:
@@ -423,6 +568,9 @@ def run_doctor(args: argparse.Namespace) -> int:
         print(f"Data directory: {diagnostic['data_dir']}")
         print(f"TTS provider: {diagnostic['tts_provider']}")
         print(f"TTS timeout seconds: {diagnostic['tts_timeout_seconds']}")
+        print(f"Reddit user agent: {diagnostic['reddit_user_agent']}")
+        print(f"Reddit OAuth token configured: {diagnostic['reddit_oauth_token_configured']}")
+        print(f"Reddit timeout seconds: {diagnostic['reddit_timeout_seconds']}")
     return 0
 
 
@@ -811,6 +959,27 @@ def _load_tts_provider(provider: str) -> LocalWavTtsProvider:
     raise UserInputError(f"Unsupported TTS provider: {provider}")
 
 
+def _stored_source_discovery_payload(stored: StoredSourceDiscovery) -> dict[str, Any]:
+    payload = stored.record.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {
+        "record": str(stored.record_path),
+        "raw_pages_dir": str(stored.raw_pages_dir),
+        "raw_pages": [str(path) for path in stored.raw_page_paths],
+    }
+    return payload
+
+
+def _find_discovered_post(
+    posts: tuple[DiscoveredSourcePost, ...],
+    source_id: str,
+) -> DiscoveredSourcePost:
+    for post in posts:
+        if post.source_id == source_id:
+            return post
+    raise UserInputError(f"Discovered source post was not found: {source_id}")
+
+
 def _stored_story_payload(stored: StoredStory) -> dict[str, Any]:
     payload = stored.record.to_dict()
     payload["created"] = stored.created
@@ -881,6 +1050,13 @@ def _stored_subtitle_payload(stored: StoredSubtitle) -> dict[str, Any]:
         "export": str(stored.export_path),
     }
     return payload
+
+
+def _source_post_preview(post: DiscoveredSourcePost) -> str:
+    text = " ".join(post.story_text.split())
+    if len(text) <= 100:
+        return text
+    return f"{text[:97]}..."
 
 
 def _story_preview(record: StoryRecord) -> str:
