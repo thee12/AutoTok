@@ -25,6 +25,8 @@ from autotok.media_selection import (
 )
 from autotok.media_storage import MediaStore, StoredClip, StoredMedia
 from autotok.models import StoryRecord
+from autotok.render import build_render_spec, render_video_package
+from autotok.render_storage import RenderStore, StoredRender
 from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
 from autotok.storage import StoredStory, StoryStore
@@ -69,6 +71,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_audio_parser(subcommands)
     _add_subtitle_parser(subcommands)
     _add_media_parser(subcommands)
+    _add_render_parser(subcommands)
     return parser
 
 
@@ -356,6 +359,46 @@ def _add_media_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentP
     media_select.set_defaults(handler=run_media_select)
 
 
+def _add_render_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    render = subcommands.add_parser(
+        "render",
+        help="Create and inspect validated local video render packages.",
+    )
+    render_subcommands = render.add_subparsers(dest="render_command", required=True)
+
+    render_create = render_subcommands.add_parser(
+        "create",
+        help="Render a validated portrait video package from completed artifacts.",
+    )
+    render_create.add_argument("audio_id", help="Narration audio ID to mix into the video.")
+    render_create.add_argument("subtitle_id", help="Subtitle document ID to burn into the video.")
+    render_create.add_argument("clip_id", help="Prepared background clip ID to render.")
+    render_create.add_argument(
+        "--ffmpeg-path",
+        type=Path,
+        default=Path("ffmpeg"),
+        help="Path to ffmpeg executable.",
+    )
+    render_create.add_argument(
+        "--ffprobe-path",
+        type=Path,
+        default=Path("ffprobe"),
+        help="Path to ffprobe executable.",
+    )
+    render_create.add_argument("--json", action="store_true", help="Print render manifest as JSON.")
+    render_create.set_defaults(handler=run_render_create)
+
+    render_inspect = render_subcommands.add_parser(
+        "inspect",
+        help="Inspect a completed render package.",
+    )
+    render_inspect.add_argument("render_id", help="Render package ID to inspect.")
+    render_inspect.add_argument(
+        "--json", action="store_true", help="Print render manifest as JSON."
+    )
+    render_inspect.set_defaults(handler=run_render_inspect)
+
+
 def run_doctor(args: argparse.Namespace) -> int:
     """Run the harmless diagnostic command."""
     config = _load_config(args)
@@ -618,6 +661,55 @@ def run_media_select(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_render_create(args: argparse.Namespace) -> int:
+    """Create a validated local video render package."""
+    config = _load_config(args)
+    audio = AudioStore(config.data_dir).load(args.audio_id)
+    subtitle = SubtitleStore(config.data_dir).load(args.subtitle_id)
+    media_store = MediaStore(config.data_dir)
+    clip = media_store.load_clip(args.clip_id)
+    media = media_store.load_media(clip.record.media_id)
+    spec = build_render_spec(audio=audio, subtitle=subtitle, media=media, clip=clip)
+    stored = render_video_package(
+        store=RenderStore(config.data_dir),
+        spec=spec,
+        subtitle=subtitle,
+        ffmpeg_command=[str(args.ffmpeg_path)],
+        ffprobe_command=[str(args.ffprobe_path)],
+    )
+    payload = _stored_render_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        metadata = stored.manifest.output_metadata
+        print(f"Render package: {stored.manifest.render_id}")
+        print(f"Status: {status}")
+        print(f"Output: {stored.paths.output_path}")
+        print(f"Duration seconds: {metadata.duration_seconds}")
+        print(f"Resolution: {metadata.width}x{metadata.height}")
+        print(f"Manifest: {stored.paths.manifest_path}")
+    return 0
+
+
+def run_render_inspect(args: argparse.Namespace) -> int:
+    """Inspect a completed local video render package."""
+    config = _load_config(args)
+    stored = RenderStore(config.data_dir).load(args.render_id)
+    payload = _stored_render_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        metadata = stored.manifest.output_metadata
+        print(f"Render package: {stored.manifest.render_id}")
+        print(f"Status: {stored.manifest.status}")
+        print(f"Output: {stored.paths.output_path}")
+        print(f"Duration seconds: {metadata.duration_seconds}")
+        print(f"Resolution: {metadata.width}x{metadata.height}")
+        print(f"Manifest: {stored.paths.manifest_path}")
+    return 0
+
+
 def run_subtitle_generate(args: argparse.Namespace) -> int:
     """Generate a subtitle document from a script/audio pair."""
     config = _load_config(args)
@@ -766,6 +858,18 @@ def _stored_clip_payload(stored: StoredClip) -> dict[str, Any]:
     payload = stored.record.to_dict()
     payload["created"] = stored.created
     payload["artifacts"] = {"record": str(stored.record_path)}
+    return payload
+
+
+def _stored_render_payload(stored: StoredRender) -> dict[str, Any]:
+    payload = stored.manifest.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {
+        "manifest": str(stored.paths.manifest_path),
+        "render_spec": str(stored.paths.spec_path),
+        "output": str(stored.paths.output_path),
+        "subtitle_ass": str(stored.paths.subtitle_ass_path),
+    }
     return payload
 
 

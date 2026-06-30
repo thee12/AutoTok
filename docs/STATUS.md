@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 5 - Background-media library.
+Phase 6 - End-to-end vertical video rendering.
 
 ## Implemented
 
@@ -52,6 +52,15 @@ Phase 5 - Background-media library.
 - duration, orientation, tag, seed, start-offset, and recent-use-aware selection
 - background media import, inspection, and selection through
   `autotok media import`, `autotok media inspect`, and `autotok media select`
+- canonical render profile, render specification, output metadata, and manifest
+  dataclasses
+- FFmpeg command construction for portrait crop/scale, burned-in ASS subtitles,
+  and narration audio mixing
+- rendered output probing and validation for portrait dimensions, duration,
+  audio stream presence, and non-empty output
+- render packages under `data/renders/`
+- render creation and inspection through `autotok render create` and
+  `autotok render inspect`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -59,14 +68,13 @@ Phase 5 - Background-media library.
 
 ## Not Implemented
 
-The repository does not yet render video, trim selected clips, ingest Reddit
-content, store data in a database, provide a UI, or publish content. It also does
-not call real paid/cloud TTS or transcription providers.
+The repository does not yet ingest Reddit content, store data in a database,
+provide a UI, publish content, schedule posts, or run persistent jobs. It also
+does not call real paid/cloud TTS or transcription providers.
 
-## Phase 5 Acceptance Evidence
+## Phase 6 Acceptance Evidence
 
-An authorized local background clip can be cataloged with ffprobe metadata,
-license/usage notes, and tags, inspected through the CLI, and selected into a
-clip-preparation record with deterministic seed-based start offsets. Selection
-filters by target duration, orientation, and tags, and avoids recently selected
-media IDs when alternatives exist.
+Approved local artifacts can be rendered into a validated portrait video package
+through `autotok render create`. The render stage writes a render spec, burned-in
+subtitle working file, MP4 output, and manifest, then probes the output for
+portrait dimensions, duration, audio stream presence, and file metadata.

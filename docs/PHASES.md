@@ -206,9 +206,41 @@ Excluded:
 Exit gate: AutoTok can catalog authorized clips and deterministically select a
 valid segment for a target narration duration.
 
-## Later Phases
+## Phase 6 - End-to-End Vertical Video Rendering
 
-Phase 6: end-to-end vertical video rendering for the first local MVP.
+Goal: complete the first local MVP by producing a validated vertical video
+package.
+
+Status: complete.
+
+In scope:
+
+- render specification
+- FFmpeg composition pipeline
+- portrait crop/scale policy
+- narration audio mix
+- burned-in subtitles
+- output profile configuration
+- per-render work directories
+- post-render probing and validation
+- render manifest
+- CLI commands for render creation and inspection
+- small end-to-end CLI test with synthetic media and fake FFmpeg/FFprobe
+- manual review instructions in project documentation
+
+Excluded:
+
+- Reddit or automated source ingestion
+- automated discovery
+- web dashboard
+- posting or scheduling
+- persistent job orchestration
+- analytics
+
+Exit gate: one command can transform approved local inputs into a validated,
+reviewable short-form video package.
+
+## Later Phases
 
 Phase 7: approved Reddit and source ingestion.
 

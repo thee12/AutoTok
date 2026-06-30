@@ -27,5 +27,9 @@ class ProviderError(AutoTokError):
     """Raised when an audio or AI provider request fails safely."""
 
 
+class RenderError(AutoTokError):
+    """Raised when local video rendering or render validation fails."""
+
+
 class UnsupportedMediaError(AutoTokError):
     """Raised when a local media file is missing, invalid, or unsupported."""

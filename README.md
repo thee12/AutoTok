@@ -2,16 +2,15 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 5: authorized background-media cataloging and
-clip selection.
+currently complete through Phase 6: the first local MVP render package.
 
-No final video rendering, Reddit ingestion, database, UI, or publishing behavior
-exists yet. No paid provider calls are made by tests.
+No Reddit ingestion, database, UI, or publishing behavior exists yet. No paid
+provider calls are made by tests.
 
 ## Requirements
 
 - Python 3.12 or newer
-- FFmpeg's `ffprobe` executable for real background-media imports
+- FFmpeg's `ffmpeg` and `ffprobe` executables for real media imports and renders
 
 ## Setup
 
@@ -116,6 +115,18 @@ Inspect cataloged background media and select a deterministic segment:
 ```bash
 autotok media inspect media_0123456789abcdef
 autotok media select --target-seconds 45 --orientation portrait --tag gameplay --seed 7
+```
+
+Render a validated local vertical video package:
+
+```bash
+autotok render create audio_0123456789abcdef subtitle_0123456789abcdef clip_0123456789abcdef
+```
+
+Inspect a completed render package:
+
+```bash
+autotok render inspect render_0123456789abcdef
 ```
 
 Use a specific local artifact workspace:
@@ -252,6 +263,28 @@ orientation, and recent media IDs avoided when possible.
 
 Phase 5 does not trim or render media. It only catalogs authorized local clips
 and prepares a segment record for the later composition phase.
+
+## Render Artifacts
+
+Validated render packages are stored under:
+
+```text
+data/renders/render_<hash-prefix>/
+```
+
+Each render directory contains:
+
+- `render_spec.json`, the resolved audio, subtitle, media, clip, and output
+  profile configuration
+- `output.mp4`, a portrait MP4 composed with background video, narration audio,
+  and burned-in subtitles
+- `manifest.json`, output metadata, FFmpeg command arguments, artifact paths,
+  status, and provenance IDs
+- `work/subtitles.ass`, the subtitle file passed to FFmpeg for rendering
+
+Phase 6 completes the first local MVP. The output is saved for human review;
+AutoTok still does not publish, schedule, ingest Reddit content, or provide a
+review dashboard.
 
 ## Documentation
 

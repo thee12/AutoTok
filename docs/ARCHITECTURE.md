@@ -1,8 +1,8 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 5 adds authorized
-background-media cataloging and clip selection only; no final video rendering,
-database, UI, or publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 6 adds local
+portrait video render packages only; no Reddit ingestion, database, UI, or
+publishing behavior exists yet.
 
 ## Current Shape
 
@@ -26,6 +26,9 @@ database, UI, or publishing behavior exists yet.
 - `autotok media inspect` loads and summarizes a cataloged media record.
 - `autotok media select` creates a deterministic clip-preparation artifact for a
   target duration.
+- `autotok render create` composes background media, narration audio, and
+  burned-in subtitles into a validated portrait MP4 package.
+- `autotok render inspect` loads and summarizes a completed render manifest.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/script_models.py` contains canonical script/review dataclasses.
@@ -33,6 +36,8 @@ database, UI, or publishing behavior exists yet.
 - `src/autotok/subtitle_models.py` contains canonical subtitle dataclasses.
 - `src/autotok/media_models.py` contains canonical background-media and clip
   preparation dataclasses.
+- `src/autotok/render_models.py` contains render profiles, render specs,
+  rendered-output metadata, and render manifests.
 - `src/autotok/normalization.py` normalizes UTF-8 story text and computes stable
   content identifiers.
 - `src/autotok/ingestion.py` creates validated manual story records.
@@ -48,18 +53,23 @@ database, UI, or publishing behavior exists yet.
   local background clips.
 - `src/autotok/media_selection.py` builds authorized media records and performs
   deterministic segment selection with recent-use avoidance.
+- `src/autotok/render.py` builds FFmpeg command arguments, writes ASS subtitles,
+  runs local rendering, probes output, and validates the portrait MP4.
 - `src/autotok/storage.py` persists story artifacts in the filesystem workspace.
 - `src/autotok/script_storage.py` persists script review artifacts.
 - `src/autotok/audio_storage.py` persists narration audio artifacts.
 - `src/autotok/subtitle_storage.py` persists subtitle documents and exports.
 - `src/autotok/media_storage.py` persists background-media records and
   clip-preparation artifacts.
+- `src/autotok/render_storage.py` persists render specs, manifests, working
+  subtitle files, and output MP4 packages.
 - `src/autotok/logging.py` centralizes logging setup.
 - `src/autotok/errors.py` defines the base exception hierarchy.
 - `tests/` covers CLI, configuration, normalization, ingestion, storage,
   transformation, script review, audio probing, TTS providers, audio storage,
   subtitle timing, subtitle exports, subtitle CLI behavior, background-media
-  probing, media storage, deterministic selection, and media CLI behavior.
+  probing, media storage, deterministic selection, media CLI behavior, render
+  command construction, render validation, manifests, and render CLI behavior.
 
 ## Configuration
 
@@ -73,9 +83,9 @@ safe built-in defaults:
 5. `AUTOTOK_TTS_PROVIDER`, default `local_wav`
 6. `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
 
-Secrets must remain in environment variables or local ignored files. Phase 5 does
-not require credentials because background-media import only reads authorized
-local files and local ffprobe metadata.
+Secrets must remain in environment variables or local ignored files. Phase 6 does
+not require credentials because rendering only reads approved local artifacts and
+uses local FFmpeg/FFprobe executables.
 
 ## Runtime Data
 
@@ -85,7 +95,8 @@ script review artifacts under `data/scripts/<script_id>/`. Phase 3 writes
 audio artifacts under `data/audio/<audio_id>/`. Phase 4 writes subtitle
 artifacts under `data/subtitles/<subtitle_id>/`. Phase 5 writes background-media
 catalog records under `data/media/<media_id>/` and clip-preparation records under
-`data/clips/<clip_id>/`.
+`data/clips/<clip_id>/`. Phase 6 writes render packages under
+`data/renders/<render_id>/`.
 
 A stored story currently contains:
 
@@ -122,16 +133,25 @@ A stored clip-preparation artifact currently contains:
 - `record.json`, selected media ID, target duration, start/end offsets, seed,
   requested orientation and tags, and recent media IDs avoided when possible
 
+A stored render package currently contains:
+
+- `render_spec.json`, resolved artifact IDs, source paths, clip timing, and
+  output profile
+- `output.mp4`, the rendered portrait video package
+- `manifest.json`, render status, output probe metadata, FFmpeg command
+  arguments, artifact paths, and provenance IDs
+- `work/subtitles.ass`, the generated subtitle file used by FFmpeg
+
 The repository ignores local runtime directories such as `data/`, `inputs/`,
 `work/`, `outputs/`, `logs/`, and `cache/`.
 
-## Phase 5 Boundaries
+## Phase 6 Boundaries
 
-Phase 5 intentionally stops at cataloged authorized background media and prepared
-clip segment records. It validates local video metadata through ffprobe, records
-license/usage notes, filters by duration, orientation, and tags, and selects
-start offsets deterministically from a seed. Actual trimming, video composition,
-subtitle burning, and publication remain deferred.
+Phase 6 completes the first local MVP by composing existing approved artifacts
+into a reviewable portrait MP4. It uses FFmpeg through explicit argument arrays,
+burns generated subtitles into the video, mixes narration audio, probes the
+output, and records a manifest. Automated source discovery, persistent jobs,
+review UI, scheduling, and publishing remain deferred.
 
 ## Deferred Architecture
 
@@ -139,8 +159,6 @@ The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- FFmpeg rendering/composition wrappers;
-- burned-in subtitle rendering;
 - SQLite persistence;
 - review UI;
 - official publishing adapters.
