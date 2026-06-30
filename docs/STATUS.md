@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 2 - Script transformation and review artifacts.
+Phase 3 - Narration audio.
 
 ## Implemented
 
@@ -10,6 +10,7 @@ Phase 2 - Script transformation and review artifacts.
 - `src/autotok` package layout
 - `autotok doctor` diagnostic CLI command
 - environment-backed configuration model with CLI `--data-dir` override
+- credential-safe local TTS provider and timeout configuration
 - standard-library logging setup
 - application exception hierarchy
 - canonical story/source dataclasses
@@ -22,10 +23,19 @@ Phase 2 - Script transformation and review artifacts.
 - canonical narration script and review dataclasses
 - provider-independent script transformation interface
 - deterministic local transformer with privacy redaction and duration budgeting
-- fake transformer test double
+- fake script transformer test double
 - script artifacts under `data/scripts/`
 - script inspection and approval through `autotok script inspect` and
   `autotok script approve`
+- canonical narration audio dataclasses
+- provider-independent TTS interface
+- local WAV provider for credential-free generated audio
+- manually supplied WAV audio path
+- fake TTS provider test double
+- WAV PCM probing, validation, metadata, and hashing
+- narration audio artifacts under `data/audio/`
+- narration and audio inspection through `autotok script narrate` and
+  `autotok audio inspect`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -33,13 +43,12 @@ Phase 2 - Script transformation and review artifacts.
 
 ## Not Implemented
 
-The repository does not yet call real AI providers, generate audio, create
-subtitles, render video, ingest Reddit content, store data in a database, provide
-a UI, or publish content.
+The repository does not yet create subtitles, render video, ingest Reddit
+content, store data in a database, provide a UI, or publish content. It also does
+not call real paid/cloud TTS providers.
 
-## Phase 2 Acceptance Evidence
+## Phase 3 Acceptance Evidence
 
-An imported story can be transformed into a pending-review narration script,
-inspected through the CLI, approved locally, and represented by before/after
-artifacts, transformation history, privacy-redaction metadata, and a duration
-estimate.
+An approved script can produce deterministic local WAV narration audio, accept a
+manually supplied WAV narration file, validate audio metadata, store the artifact
+locally, and inspect the resulting audio record through the CLI.

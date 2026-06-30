@@ -1,9 +1,8 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 2 adds local
-story-to-script transformation and review artifacts only; no AI provider calls,
-audio handling, subtitle generation, video rendering, database, UI, or publishing
-behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 3 adds narration
+audio artifacts only; no subtitle generation, video rendering, database, UI, or
+publishing behavior exists yet.
 
 ## Current Shape
 
@@ -14,21 +13,29 @@ behavior exists yet.
 - `autotok story transform` creates a reviewable narration script from a story.
 - `autotok script inspect` loads and summarizes a generated script record.
 - `autotok script approve` marks a generated script approved for later phases.
+- `autotok script narrate` creates or imports validated narration audio for an
+  approved script.
+- `autotok audio inspect` loads and summarizes a narration audio record.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/script_models.py` contains canonical script/review dataclasses.
+- `src/autotok/audio_models.py` contains canonical audio dataclasses.
 - `src/autotok/normalization.py` normalizes UTF-8 story text and computes stable
   content identifiers.
 - `src/autotok/ingestion.py` creates validated manual story records.
-- `src/autotok/transform.py` defines the provider-independent transformation
-  interface, deterministic baseline provider, privacy rules, and duration
-  budgeting.
+- `src/autotok/transform.py` defines the provider-independent script
+  transformation interface, deterministic baseline provider, privacy rules, and
+  duration budgeting.
+- `src/autotok/tts.py` defines the provider-independent TTS interface, local WAV
+  provider, fake test provider, and manual-audio record builder.
+- `src/autotok/audio_probe.py` probes and validates WAV PCM narration audio.
 - `src/autotok/storage.py` persists story artifacts in the filesystem workspace.
 - `src/autotok/script_storage.py` persists script review artifacts.
+- `src/autotok/audio_storage.py` persists narration audio artifacts.
 - `src/autotok/logging.py` centralizes logging setup.
 - `src/autotok/errors.py` defines the base exception hierarchy.
-- `tests/` covers the CLI, configuration, normalization, ingestion, storage,
-  transformation, and script review behavior.
+- `tests/` covers CLI, configuration, normalization, ingestion, storage,
+  transformation, script review, audio probing, TTS providers, and audio storage.
 
 ## Configuration
 
@@ -39,15 +46,18 @@ safe built-in defaults:
 2. `AUTOTOK_DATA_DIR`, default `data`
 3. `AUTOTOK_ENV`, default `local`
 4. `AUTOTOK_LOG_LEVEL`, default `INFO`
+5. `AUTOTOK_TTS_PROVIDER`, default `local_wav`
+6. `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
 
-Future phases may add file-based configuration if a concrete need appears.
-Secrets must remain in environment variables or local ignored files.
+Secrets must remain in environment variables or local ignored files. Phase 3 does
+not require any credentials because the only configured provider is local.
 
 ## Runtime Data
 
 Generated runtime data must stay outside source code. Phase 1 writes imported
 story artifacts under `data/sources/<story_id>/` by default. Phase 2 writes
-script review artifacts under `data/scripts/<script_id>/`.
+script review artifacts under `data/scripts/<script_id>/`. Phase 3 writes
+audio artifacts under `data/audio/<audio_id>/`.
 
 A stored story currently contains:
 
@@ -61,23 +71,28 @@ A stored script currently contains:
 - `before.txt`, normalized story text before transformation
 - `script.txt`, complete narration script text
 
+A stored audio artifact currently contains:
+
+- `record.json`, canonical audio metadata and provider/source details
+- `narration.wav`, validated WAV PCM narration audio
+
 The repository ignores local runtime directories such as `data/`, `inputs/`,
 `work/`, `outputs/`, `logs/`, and `cache/`.
 
-## Phase 2 Boundaries
+## Phase 3 Boundaries
 
-Phase 2 intentionally stops at reviewable script artifacts. The deterministic
-baseline transformer performs local cleanup, common contact-detail redaction,
-hook/body/outro sectioning, duration budgeting, and transformation metadata
-capture. A fake transformer exists only as a test double for the provider
-interface. No real external AI adapter is configured or called.
+Phase 3 intentionally stops at validated narration audio artifacts. The local WAV
+provider creates deterministic valid placeholder WAV audio without credentials,
+network access, or paid calls. Manually supplied WAV narration is validated and
+copied into the artifact workspace. Real speech-provider adapters, subtitles,
+media composition, and publication remain deferred.
 
 ## Deferred Architecture
 
 The following concerns are intentionally deferred to later phases:
 
-- real AI transformation adapters;
-- TTS and transcription providers;
+- real paid or cloud TTS providers;
+- transcription providers;
 - subtitle models and alignment;
 - FFmpeg/FFprobe wrappers;
 - authorized media cataloging;

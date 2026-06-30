@@ -2,10 +2,10 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 2: script transformation and review artifacts.
+currently complete through Phase 3: narration audio.
 
-No AI provider calls, audio generation, subtitle generation, video rendering,
-Reddit ingestion, database, UI, or publishing behavior exists yet.
+No subtitle generation, video rendering, Reddit ingestion, database, UI, or
+publishing behavior exists yet. No paid provider calls are made by tests.
 
 ## Requirements
 
@@ -65,6 +65,25 @@ autotok script inspect script_0123456789abcdef
 autotok script approve script_0123456789abcdef
 ```
 
+Create validated narration audio for an approved script with the local WAV
+provider:
+
+```bash
+autotok script narrate script_0123456789abcdef --provider local_wav
+```
+
+Use an existing local WAV file as manually supplied narration audio:
+
+```bash
+autotok script narrate script_0123456789abcdef --audio-file path/to/narration.wav
+```
+
+Inspect generated or imported narration audio:
+
+```bash
+autotok audio inspect audio_0123456789abcdef
+```
+
 Use a specific local artifact workspace:
 
 ```bash
@@ -96,6 +115,8 @@ Current environment variables:
 - `AUTOTOK_ENV`, default `local`
 - `AUTOTOK_LOG_LEVEL`, default `INFO`
 - `AUTOTOK_DATA_DIR`, default `data`
+- `AUTOTOK_TTS_PROVIDER`, default `local_wav`
+- `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
 
 The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command.
 
@@ -132,7 +153,24 @@ Each script directory contains:
 - `script.txt`, the full hook/body/outro narration script
 
 Scripts are created with `pending_review` status and must be approved before
-later phases consume them.
+Phase 3 narration audio can be produced or accepted.
+
+## Audio Artifacts
+
+Validated narration audio is stored under:
+
+```text
+data/audio/audio_<hash-prefix>/
+```
+
+Each audio directory contains:
+
+- `record.json`, audio metadata, source/provider metadata, and request metadata
+- `narration.wav`, the validated WAV PCM audio artifact
+
+The `local_wav` provider is a credential-free local development provider that
+creates deterministic valid WAV placeholder audio. Real speech-provider adapters
+are deferred until explicitly selected in a later prompt.
 
 ## Documentation
 

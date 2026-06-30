@@ -11,7 +11,10 @@ from autotok.errors import ConfigurationError
 DEFAULT_ENVIRONMENT = "local"
 DEFAULT_LOG_LEVEL = "INFO"
 DEFAULT_DATA_DIR = Path("data")
+DEFAULT_TTS_PROVIDER = "local_wav"
+DEFAULT_TTS_TIMEOUT_SECONDS = 30
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+VALID_TTS_PROVIDERS = {"local_wav"}
 
 
 class ConfigError(ConfigurationError):
@@ -29,6 +32,8 @@ class AppConfig:
     environment: str = DEFAULT_ENVIRONMENT
     log_level: str = DEFAULT_LOG_LEVEL
     data_dir: Path = DEFAULT_DATA_DIR
+    tts_provider: str = DEFAULT_TTS_PROVIDER
+    tts_timeout_seconds: int = DEFAULT_TTS_TIMEOUT_SECONDS
 
     @classmethod
     def from_environment(cls, environ: dict[str, str] | None = None) -> AppConfig:
@@ -39,15 +44,32 @@ class AppConfig:
             or DEFAULT_ENVIRONMENT,
             log_level=source.get("AUTOTOK_LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper(),
             data_dir=Path(source.get("AUTOTOK_DATA_DIR", str(DEFAULT_DATA_DIR))).expanduser(),
+            tts_provider=source.get("AUTOTOK_TTS_PROVIDER", DEFAULT_TTS_PROVIDER).strip()
+            or DEFAULT_TTS_PROVIDER,
+            tts_timeout_seconds=_parse_int(
+                source.get("AUTOTOK_TTS_TIMEOUT_SECONDS"),
+                default=DEFAULT_TTS_TIMEOUT_SECONDS,
+                name="AUTOTOK_TTS_TIMEOUT_SECONDS",
+            ),
         )
         config.validate()
         return config
 
-    def with_overrides(self, *, data_dir: Path | None = None) -> AppConfig:
+    def with_overrides(
+        self,
+        *,
+        data_dir: Path | None = None,
+        tts_provider: str | None = None,
+        tts_timeout_seconds: int | None = None,
+    ) -> AppConfig:
         """Return a validated copy with command-line overrides applied."""
         config = replace(
             self,
             data_dir=self.data_dir if data_dir is None else data_dir.expanduser(),
+            tts_provider=self.tts_provider if tts_provider is None else tts_provider,
+            tts_timeout_seconds=(
+                self.tts_timeout_seconds if tts_timeout_seconds is None else tts_timeout_seconds
+            ),
         )
         config.validate()
         return config
@@ -61,3 +83,17 @@ class AppConfig:
             raise ConfigError(f"AUTOTOK_LOG_LEVEL must be one of: {allowed}.")
         if not str(self.data_dir):
             raise ConfigError("AUTOTOK_DATA_DIR must not be empty.")
+        if self.tts_provider not in VALID_TTS_PROVIDERS:
+            allowed = ", ".join(sorted(VALID_TTS_PROVIDERS))
+            raise ConfigError(f"AUTOTOK_TTS_PROVIDER must be one of: {allowed}.")
+        if self.tts_timeout_seconds <= 0:
+            raise ConfigError("AUTOTOK_TTS_TIMEOUT_SECONDS must be greater than zero.")
+
+
+def _parse_int(value: str | None, *, default: int, name: str) -> int:
+    if value is None or not value.strip():
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise ConfigError(f"{name} must be an integer.") from exc

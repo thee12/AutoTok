@@ -21,3 +21,11 @@ class DependencyError(AutoTokError):
 
 class PersistenceError(AutoTokError):
     """Raised when local artifact storage cannot be read or written."""
+
+
+class ProviderError(AutoTokError):
+    """Raised when an audio or AI provider request fails safely."""
+
+
+class UnsupportedMediaError(AutoTokError):
+    """Raised when a local media file is missing, invalid, or unsupported."""

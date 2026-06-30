@@ -80,7 +80,7 @@ by validated metadata without modifying the source.
 Goal: convert an imported story into a narration-ready script while preserving
 provenance and requiring review.
 
-Status: implemented in this working tree.
+Status: complete.
 
 In scope:
 
@@ -108,9 +108,41 @@ Excluded:
 Exit gate: an imported story can produce a reviewable narration script with
 transformation history and duration estimate.
 
-## Later Phases
+## Phase 3 - Narration Audio
 
-Phase 3: narration audio.
+Goal: produce validated narration audio from an approved script.
+
+Status: implemented in this working tree.
+
+In scope:
+
+- provider-independent TTS interface
+- manually supplied WAV narration audio path
+- explicit local WAV provider for credential-free development
+- credential-safe TTS provider and timeout configuration
+- timeout validation and provider error mapping
+- deterministic fake provider for tests
+- WAV PCM probing and validation
+- audio metadata and content hashing
+- idempotent audio artifact storage under `data/audio/`
+- CLI narration command and audio inspection command
+- tests that do not make paid calls
+
+Excluded:
+
+- subtitles
+- transcription or alignment
+- background media
+- final video rendering
+- Reddit or automated source ingestion
+- review UI
+- publishing
+- real paid/cloud TTS calls
+
+Exit gate: an approved script can produce or accept a validated narration audio
+artifact.
+
+## Later Phases
 
 Phase 4: subtitle generation and alignment.
 

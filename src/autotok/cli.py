@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from autotok import __version__
+from autotok.audio_storage import AudioStore, StoredAudio
 from autotok.config import AppConfig, ConfigError
 from autotok.errors import AutoTokError, UserInputError
 from autotok.ingestion import build_manual_file_record, build_manual_text_record
@@ -19,6 +20,11 @@ from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
 from autotok.storage import StoredStory, StoryStore
 from autotok.transform import DEFAULT_TARGET_SECONDS, DeterministicScriptTransformer
+from autotok.tts import (
+    LocalWavTtsProvider,
+    build_manual_audio_record,
+    build_tts_audio_record,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -96,7 +102,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     script = subcommands.add_parser(
         "script",
-        help="Inspect and approve reviewable narration scripts.",
+        help="Inspect, approve, and narrate reviewable narration scripts.",
     )
     script_subcommands = script.add_subparsers(dest="script_command", required=True)
 
@@ -117,6 +123,44 @@ def build_parser() -> argparse.ArgumentParser:
         "--json", action="store_true", help="Print approved record as JSON."
     )
     script_approve.set_defaults(handler=run_script_approve)
+
+    script_narrate = script_subcommands.add_parser(
+        "narrate",
+        help="Create or import validated narration audio for an approved script.",
+    )
+    script_narrate.add_argument("script_id", help="Approved script ID to narrate.")
+    script_narrate.add_argument(
+        "--provider",
+        choices=["local_wav"],
+        default=None,
+        help="TTS provider for generated narration audio.",
+    )
+    script_narrate.add_argument(
+        "--audio-file",
+        type=Path,
+        help="Use an existing local WAV file as manually supplied narration audio.",
+    )
+    script_narrate.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=None,
+        help="Provider timeout in seconds.",
+    )
+    script_narrate.add_argument("--json", action="store_true", help="Print audio record as JSON.")
+    script_narrate.set_defaults(handler=run_script_narrate)
+
+    audio = subcommands.add_parser(
+        "audio",
+        help="Inspect validated narration audio artifacts.",
+    )
+    audio_subcommands = audio.add_subparsers(dest="audio_command", required=True)
+    audio_inspect = audio_subcommands.add_parser(
+        "inspect",
+        help="Inspect a narration audio record.",
+    )
+    audio_inspect.add_argument("audio_id", help="Generated or imported audio ID to inspect.")
+    audio_inspect.add_argument("--json", action="store_true", help="Print audio record as JSON.")
+    audio_inspect.set_defaults(handler=run_audio_inspect)
     return parser
 
 
@@ -130,6 +174,8 @@ def run_doctor(args: argparse.Namespace) -> int:
         "environment": config.environment,
         "log_level": config.log_level,
         "data_dir": str(config.data_dir),
+        "tts_provider": config.tts_provider,
+        "tts_timeout_seconds": config.tts_timeout_seconds,
         "status": "ok",
     }
     if args.json:
@@ -140,6 +186,8 @@ def run_doctor(args: argparse.Namespace) -> int:
         print(f"Environment: {diagnostic['environment']}")
         print(f"Log level: {diagnostic['log_level']}")
         print(f"Data directory: {diagnostic['data_dir']}")
+        print(f"TTS provider: {diagnostic['tts_provider']}")
+        print(f"TTS timeout seconds: {diagnostic['tts_timeout_seconds']}")
     return 0
 
 
@@ -243,6 +291,63 @@ def run_script_approve(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_script_narrate(args: argparse.Namespace) -> int:
+    """Create or import validated narration audio for an approved script."""
+    config = _load_config(args)
+    config = config.with_overrides(
+        tts_provider=args.provider,
+        tts_timeout_seconds=args.timeout_seconds,
+    )
+    script = ScriptStore(config.data_dir).load(args.script_id).record
+    if args.audio_file is None:
+        provider = _load_tts_provider(config.tts_provider)
+        record, source_audio_path = build_tts_audio_record(
+            script,
+            provider=provider,
+            timeout_seconds=config.tts_timeout_seconds,
+        )
+    else:
+        record = build_manual_audio_record(script, audio_path=args.audio_file)
+        source_audio_path = args.audio_file.expanduser()
+
+    stored = AudioStore(config.data_dir).save(record, source_audio_path=source_audio_path)
+    payload = _stored_audio_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        status = "created" if stored.created else "existing"
+        print(f"Narration audio: {stored.record.audio_id}")
+        print(f"Status: {status}")
+        print(f"Source type: {stored.record.source_type.value}")
+        print(f"Provider: {stored.record.provider_name} {stored.record.provider_version}")
+        print(f"Duration seconds: {stored.record.metadata.duration_seconds}")
+        print(f"Record: {stored.record_path}")
+        print(f"Audio: {stored.audio_path}")
+    return 0
+
+
+def run_audio_inspect(args: argparse.Namespace) -> int:
+    """Inspect a stored narration audio record."""
+    config = _load_config(args)
+    stored = AudioStore(config.data_dir).load(args.audio_id)
+    payload = _stored_audio_payload(stored)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        record = stored.record
+        print(f"Audio: {record.audio_id}")
+        print(f"Script: {record.script_id}")
+        print(f"Story: {record.story_id}")
+        print(f"Source type: {record.source_type.value}")
+        print(f"Provider: {record.provider_name} {record.provider_version}")
+        print(f"Duration seconds: {record.metadata.duration_seconds}")
+        print(f"Sample rate Hz: {record.metadata.sample_rate_hz}")
+        print(f"Channels: {record.metadata.channels}")
+        print(f"Record: {stored.record_path}")
+        print(f"Audio: {stored.audio_path}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Execute the CLI and return a process exit code."""
     parser = build_parser()
@@ -270,6 +375,12 @@ def _load_transformer(provider: str) -> DeterministicScriptTransformer:
     raise UserInputError(f"Unsupported script transformation provider: {provider}")
 
 
+def _load_tts_provider(provider: str) -> LocalWavTtsProvider:
+    if provider == "local_wav":
+        return LocalWavTtsProvider()
+    raise UserInputError(f"Unsupported TTS provider: {provider}")
+
+
 def _stored_story_payload(stored: StoredStory) -> dict[str, Any]:
     payload = stored.record.to_dict()
     payload["created"] = stored.created
@@ -289,6 +400,16 @@ def _stored_script_payload(stored: StoredScript) -> dict[str, Any]:
         "record": str(stored.record_path),
         "before_text": str(stored.before_text_path),
         "script_text": str(stored.script_text_path),
+    }
+    return payload
+
+
+def _stored_audio_payload(stored: StoredAudio) -> dict[str, Any]:
+    payload = stored.record.to_dict()
+    payload["created"] = stored.created
+    payload["artifacts"] = {
+        "record": str(stored.record_path),
+        "audio": str(stored.audio_path),
     }
     return payload
 
