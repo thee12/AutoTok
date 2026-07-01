@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 9, with persistent local jobs, resumable orchestration, batch limits, and run manifests.
+currently complete through Phase 10, with persistent local jobs and a browser-based local review dashboard.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 9 stores local job state in SQLite and runs resumable story-to-render jobs serially on the local machine. No UI or publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. No publishing behavior exists yet. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -369,6 +369,28 @@ Useful commands:
 - `autotok job inspect <job_id>` inspects stages, attempts, and artifacts.
 - `autotok job cleanup` previews retention cleanup; pass `--apply` to delete
   matching job records and job manifests without deleting generated media.
+
+
+## Local Review Dashboard
+
+Phase 10 stores review packages under `data/reviews/<render_id>/review.json` and
+serves a local browser dashboard with:
+
+- render queue discovery from `data/renders/`
+- video preview from the local rendered MP4
+- editable script and export metadata snapshots
+- approve, reject, and regeneration-request controls
+- append-only local audit history
+- JSON API routes for the same review state used by the UI
+
+Start the dashboard with:
+
+```powershell
+autotok review serve
+```
+
+Then open `http://127.0.0.1:8765/`. The review dashboard is local-only and does
+not publish, schedule, upload, or contact platform APIs.
 
 ## Documentation
 

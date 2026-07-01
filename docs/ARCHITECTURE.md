@@ -1,6 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 9 adds SQLite-backed job orchestration while keeping execution serial and local-first; no UI or publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 10 adds a localhost review dashboard while keeping rendering, review state, and approvals local-first; no publishing behavior exists yet.
 
 ## Current Shape
 
@@ -35,6 +35,9 @@ AutoTok is being built as a local-first modular monolith. Phase 9 adds SQLite-ba
 - `autotok render inspect` loads and summarizes a completed render manifest.
 - `autotok job create`, `job run`, `job resume`, `job run-batch`, `job inspect`,
   `job list`, and `job cleanup` manage persistent resumable local jobs.
+- `autotok review serve` starts the local browser dashboard.
+- `autotok review list` and `autotok review inspect` expose review state without
+  opening a browser.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
@@ -44,6 +47,13 @@ AutoTok is being built as a local-first modular monolith. Phase 9 adds SQLite-ba
 - `src/autotok/job_storage.py` contains SQLite job persistence.
 - `src/autotok/job_orchestration.py` contains resumable stage execution, retry,
   crash-recovery, batch-run, manifest, and retention helpers.
+- `src/autotok/review_models.py` contains review package, editable metadata,
+  regeneration request, approval state, and audit event dataclasses.
+- `src/autotok/review_storage.py` persists review packages under `data/reviews/`.
+- `src/autotok/review_api.py` routes local dashboard API requests and serves the
+  static review UI.
+- `src/autotok/review_server.py` adapts the review API to a localhost HTTP
+  server.
 - `src/autotok/source_models.py` contains source discovery dataclasses.
 - `src/autotok/source_adapters.py` contains the Phase 7 Reddit Data API adapter, pagination, rate-limit capture, and filtering.
 - `src/autotok/source_ingestion.py` converts discovered posts into canonical story records.
@@ -87,7 +97,8 @@ AutoTok is being built as a local-first modular monolith. Phase 9 adds SQLite-ba
   subtitle timing, subtitle exports, subtitle CLI behavior, background-media
   probing, media storage, deterministic selection, media CLI behavior, render
   command construction, render validation, manifests, render CLI behavior,
-  SQLite job storage, job orchestration, crash recovery, and job CLI behavior.
+  SQLite job storage, job orchestration, crash recovery, job CLI behavior,
+  review state transitions, review API routes, and media preview serving.
 
 ## Configuration
 
@@ -115,7 +126,8 @@ audio artifacts under `data/audio/<audio_id>/`. Phase 4 writes subtitle
 artifacts under `data/subtitles/<subtitle_id>/`. Phase 5 writes background-media
 catalog records under `data/media/<media_id>/` and clip-preparation records under
 `data/clips/<clip_id>/`. Phase 6 writes render packages under
-`data/renders/<render_id>/`.
+`data/renders/<render_id>/`. Phase 10 writes review packages under
+`data/reviews/<render_id>/`.
 
 A stored story currently contains:
 
@@ -182,11 +194,12 @@ Phase 8 assesses stories with deterministic local rules before production use. I
 
 Phase 9 runs story-to-render jobs through persisted ordered stages. The runner marks stale running attempts failed before resume, skips already successful stages, retries failed stages up to the configured local attempt limit, records artifacts, and writes a job manifest. Batch execution is intentionally serial with explicit limits; no distributed queue or parallel worker pool is introduced.
 
+Phase 10 exposes completed render packages through a localhost-only review dashboard. The UI reads and writes review state through the same local API used by tests; it does not duplicate rendering, job, or publishing logic. Review edits are stored as snapshots and audit events under `data/reviews/` so original render artifacts remain intact.
+
 ## Deferred Architecture
 
 The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- review UI;
 - official publishing adapters.

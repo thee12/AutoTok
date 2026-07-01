@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 9 - Persistent orchestration and batch generation (complete).
+Phase 10 - Local review dashboard (complete).
 
 ## Implemented
 
@@ -99,6 +99,14 @@ Phase 9 - Persistent orchestration and batch generation (complete).
 - batch job creation, bounded serial `run-batch` execution, and local no-worker concurrency boundary
 - safe job cleanup/retention with dry-run default and explicit `--apply`
 - job creation, listing, inspection, run, resume, batch-run, and cleanup through `autotok job ...`
+- local review package state under `data/reviews/<render_id>/review.json`
+- editable review script and export metadata snapshots
+- review approval, rejection, and regeneration-request states
+- append-only local review audit history
+- localhost review API and static browser dashboard
+- local rendered-video preview through the dashboard media route
+- review dashboard serving through `autotok review serve`
+- review listing and inspection through `autotok review list` and `autotok review inspect`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -106,8 +114,8 @@ Phase 9 - Persistent orchestration and batch generation (complete).
 
 ## Not Implemented
 
-The repository does not yet provide a UI, publish content, schedule posts, run distributed workers, execute jobs in parallel, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not yet publish content, schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 9 Completion Evidence
+## Phase 10 Completion Evidence
 
-Phase 9 adds a SQLite-backed `JobStore`, resumable local job runner, story-to-render stage definitions, batch creation and serial batch execution, retry limits, stale running-attempt recovery, manifest writing, and safe cleanup/retention. Focused tests cover storage initialization and updates, resume without rerunning successful stages, crash recovery, max-attempt failure, cleanup dry-run/apply behavior, full job CLI execution through fake FFmpeg/FFprobe, and batch run limits. Full verification passed with 88 tests.
+Phase 10 adds review package models and storage, a local review API, localhost dashboard server, static browser UI, video preview route, CLI review commands, editable script and metadata snapshots, approval/rejection states, regeneration requests, and audit history. Focused tests cover review state creation and updates, approval, rejection, regeneration request validation, API routes, route errors, and media preview serving. Full verification passed with 92 tests.

@@ -42,6 +42,8 @@ from autotok.media_storage import MediaStore, StoredClip, StoredMedia
 from autotok.models import SourceType, StoryRecord
 from autotok.render import build_render_spec, render_video_package
 from autotok.render_storage import RenderStore, StoredRender
+from autotok.review_server import DEFAULT_REVIEW_HOST, DEFAULT_REVIEW_PORT, serve_review_dashboard
+from autotok.review_storage import ReviewStore
 from autotok.script_models import NarrationScriptRecord
 from autotok.script_storage import ScriptStore, StoredScript
 from autotok.source_adapters import (
@@ -98,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_media_parser(subcommands)
     _add_render_parser(subcommands)
     _add_job_parser(subcommands)
+    _add_review_parser(subcommands)
     return parser
 
 
@@ -741,6 +744,94 @@ def _add_job_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentPar
     )
     job_cleanup.add_argument("--json", action="store_true", help="Print cleanup result as JSON.")
     job_cleanup.set_defaults(handler=run_job_cleanup)
+
+
+def _add_review_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    review = subcommands.add_parser(
+        "review",
+        help="Serve and inspect the local review dashboard.",
+    )
+    review_subcommands = review.add_subparsers(dest="review_command", required=True)
+
+    review_serve = review_subcommands.add_parser(
+        "serve",
+        help="Start the local browser-based review dashboard.",
+    )
+    review_serve.add_argument(
+        "--host",
+        default=DEFAULT_REVIEW_HOST,
+        help="Host interface for the local dashboard server.",
+    )
+    review_serve.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_REVIEW_PORT,
+        help="Port for the local dashboard server.",
+    )
+    review_serve.set_defaults(handler=run_review_serve)
+
+    review_list = review_subcommands.add_parser(
+        "list",
+        help="List review packages discovered from local render outputs.",
+    )
+    review_list.add_argument("--json", action="store_true", help="Print review packages as JSON.")
+    review_list.set_defaults(handler=run_review_list)
+
+    review_inspect = review_subcommands.add_parser(
+        "inspect",
+        help="Inspect one review package.",
+    )
+    review_inspect.add_argument("render_id", help="Render package ID to inspect for review.")
+    review_inspect.add_argument("--json", action="store_true", help="Print review package as JSON.")
+    review_inspect.set_defaults(handler=run_review_inspect)
+
+
+def run_review_serve(args: argparse.Namespace) -> int:
+    """Start the local review dashboard server."""
+    config = _load_config(args)
+    if args.port <= 0:
+        raise UserInputError("Review dashboard port must be greater than zero.")
+    url = f"http://{args.host}:{args.port}/"
+    print(f"Serving AutoTok review dashboard at {url}")
+    print("Press Ctrl+C to stop.")
+    try:
+        serve_review_dashboard(config.data_dir, host=args.host, port=args.port)
+    except KeyboardInterrupt:
+        print("Review dashboard stopped.")
+    return 0
+
+
+def run_review_list(args: argparse.Namespace) -> int:
+    """List local review packages."""
+    config = _load_config(args)
+    packages = ReviewStore(config.data_dir).list()
+    payload = {"reviews": [package.to_dict() for package in packages]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        if not packages:
+            print("No review packages found.")
+        for package in packages:
+            print(f"{package.render_id} {package.status.value} story={package.story_id}")
+    return 0
+
+
+def run_review_inspect(args: argparse.Namespace) -> int:
+    """Inspect one local review package."""
+    config = _load_config(args)
+    store = ReviewStore(config.data_dir)
+    details = store.details(args.render_id)
+    if args.json:
+        print(json.dumps(details, indent=2, sort_keys=True))
+    else:
+        package = store.load(args.render_id)
+        print(f"Review package: {package.render_id}")
+        print(f"Status: {package.status.value}")
+        print(f"Story: {package.story_id}")
+        print(f"Script: {package.script_id}")
+        print(f"Output: {package.output_path}")
+        print(f"Audit events: {len(package.audit_events)}")
+    return 0
 
 
 def run_job_create(args: argparse.Namespace) -> int:

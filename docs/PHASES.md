@@ -340,9 +340,36 @@ Excluded:
 
 Exit gate: a batch can be interrupted and safely resumed without duplicating completed work.
 
-## Later Phases
+## Phase 10 - Local Review Dashboard
 
-Phase 10: local review dashboard.
+Goal: provide a browser-based local interface for reviewing generated stories,
+scripts, audio, subtitles, videos, and metadata.
+
+Status: complete.
+
+In scope:
+
+- localhost backend/API using the Python standard library
+- focused browser review UI served by `autotok review serve`
+- review package discovery from completed render outputs
+- local video preview for rendered MP4 packages
+- editable script and export metadata snapshots
+- approve, reject, and regeneration-request states
+- append-only audit history for review actions
+- CLI access through `autotok review list` and `autotok review inspect`
+- route and state-transition tests
+
+Excluded:
+
+- publishing, uploading, or scheduling
+- platform credentials or OAuth
+- analytics feedback
+- distributed review server deployment
+- replacing existing pipeline business logic in the UI
+
+Exit gate: a user can review and approve an export package without editing files manually.
+
+## Later Phases
 
 Phase 11: official publishing and scheduling.
 
