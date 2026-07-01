@@ -10,6 +10,7 @@ from autotok.errors import ConfigurationError
 
 DEFAULT_ENVIRONMENT = "local"
 DEFAULT_LOG_LEVEL = "INFO"
+DEFAULT_LOG_FORMAT = "text"
 DEFAULT_DATA_DIR = Path("data")
 DEFAULT_TTS_PROVIDER = "local_wav"
 DEFAULT_TTS_TIMEOUT_SECONDS = 30
@@ -17,6 +18,7 @@ DEFAULT_REDDIT_USER_AGENT = "AutoTok/0.1 local-source-ingestion"
 DEFAULT_REDDIT_TIMEOUT_SECONDS = 20
 DEFAULT_TIKTOK_TIMEOUT_SECONDS = 30
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+VALID_LOG_FORMATS = {"text", "json"}
 VALID_TTS_PROVIDERS = {"local_wav"}
 
 
@@ -34,6 +36,7 @@ class AppConfig:
 
     environment: str = DEFAULT_ENVIRONMENT
     log_level: str = DEFAULT_LOG_LEVEL
+    log_format: str = DEFAULT_LOG_FORMAT
     data_dir: Path = DEFAULT_DATA_DIR
     tts_provider: str = DEFAULT_TTS_PROVIDER
     tts_timeout_seconds: int = DEFAULT_TTS_TIMEOUT_SECONDS
@@ -55,6 +58,8 @@ class AppConfig:
             environment=source.get("AUTOTOK_ENV", DEFAULT_ENVIRONMENT).strip()
             or DEFAULT_ENVIRONMENT,
             log_level=source.get("AUTOTOK_LOG_LEVEL", DEFAULT_LOG_LEVEL).strip().upper(),
+            log_format=source.get("AUTOTOK_LOG_FORMAT", DEFAULT_LOG_FORMAT).strip().lower()
+            or DEFAULT_LOG_FORMAT,
             data_dir=Path(source.get("AUTOTOK_DATA_DIR", str(DEFAULT_DATA_DIR))).expanduser(),
             tts_provider=source.get("AUTOTOK_TTS_PROVIDER", DEFAULT_TTS_PROVIDER).strip()
             or DEFAULT_TTS_PROVIDER,
@@ -112,6 +117,9 @@ class AppConfig:
         if self.log_level not in VALID_LOG_LEVELS:
             allowed = ", ".join(sorted(VALID_LOG_LEVELS))
             raise ConfigError(f"AUTOTOK_LOG_LEVEL must be one of: {allowed}.")
+        if self.log_format not in VALID_LOG_FORMATS:
+            allowed = ", ".join(sorted(VALID_LOG_FORMATS))
+            raise ConfigError(f"AUTOTOK_LOG_FORMAT must be one of: {allowed}.")
         if not str(self.data_dir):
             raise ConfigError("AUTOTOK_DATA_DIR must not be empty.")
         if self.tts_provider not in VALID_TTS_PROVIDERS:

@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 11 - Official publishing and scheduling (complete).
+Phase 12 - Production hardening and deployment (complete).
 
 ## Implemented
 
@@ -117,6 +117,15 @@ Phase 11 - Official publishing and scheduling (complete).
 - secure secret configuration through environment variables only
 - scheduling rejection for TikTok Direct Post because official support was not verified
 - publication audit trail and CLI commands through `autotok publish ...`
+- structured JSON log format via `AUTOTOK_LOG_FORMAT=json`
+- local operational health checks through `autotok ops health`
+- artifact, job, review, and publication metrics through `autotok ops metrics`
+- ZIP data-directory backups through `autotok ops backup`
+- safe backup inspection and empty-target restore through `autotok ops restore`
+- dry-run-first transient cache/log/tmp retention through `autotok ops retention`
+- dependency inventory, ignore-pattern check, and high-confidence secret scan through `autotok ops audit`
+- lightweight metrics snapshot profiling through `autotok ops profile`
+- operations runbook covering install, monitoring, backup, restore, retention, audit, profiling, recovery, and upgrade
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -124,8 +133,8 @@ Phase 11 - Official publishing and scheduling (complete).
 
 ## Not Implemented
 
-The repository does not schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. Phase 12 operations are local-first and do not introduce a hosted deployment service. AutoTok also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 11 Completion Evidence
+## Phase 12 Completion Evidence
 
-Phase 11 adds a TikTok official publishing adapter, publication storage, dry-run records, approval gating, duplicate prevention, OAuth token lifecycle helpers, status fetches, scheduling rejection for unsupported TikTok scheduling, and redacted audit records. Focused tests cover approval enforcement, dry runs, duplicate prevention, pull-from-URL request plans, token redaction, status mapping, CLI dry runs, and config validation. Full verification passed with 101 tests plus ruff, format, and mypy checks.
+Phase 12 adds JSON log formatting, local operations commands, health checks, metrics, backup/restore, retention, dependency/secret audit checks, lightweight profiling, and an operations runbook. Focused tests cover health/metrics, backup/restore, unsafe archive rejection, retention safety, audit findings, profiling, ops CLI smoke paths, and JSON log config. Full verification passed with 109 tests plus ruff, format, and mypy checks.

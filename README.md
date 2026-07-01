@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 11, with persistent local jobs, a browser-based local review dashboard, and an official TikTok publishing adapter.
+currently complete through Phase 12, with persistent local jobs, a browser-based local review dashboard, an official TikTok publishing adapter, and local operations tooling.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. Phase 12 adds health checks, metrics, backup/restore, retention, audits, profiling, JSON logs, and an operations runbook. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -33,6 +33,14 @@ Run the harmless diagnostic command:
 
 ```bash
 autotok doctor
+```
+
+Run local operational checks:
+
+```bash
+autotok ops health
+autotok ops metrics --json
+autotok ops audit
 ```
 
 Import manually supplied story text:
@@ -169,6 +177,19 @@ autotok publish tiktok render_0123456789abcdef --execute --confirm
 autotok publish status render_0123456789abcdef --fetch
 ```
 
+Create and restore local data backups:
+
+```bash
+autotok ops backup --output backups/autotok-data.zip
+autotok ops restore --archive backups/autotok-data.zip --target-data-dir restored-data --apply
+```
+
+Preview transient artifact retention cleanup:
+
+```bash
+autotok ops retention --older-than-days 30
+```
+
 Use a specific local artifact workspace:
 
 ```bash
@@ -199,6 +220,7 @@ Current environment variables:
 
 - `AUTOTOK_ENV`, default `local`
 - `AUTOTOK_LOG_LEVEL`, default `INFO`
+- `AUTOTOK_LOG_FORMAT`, default `text`, set to `json` for structured operational logs
 - `AUTOTOK_DATA_DIR`, default `data`
 - `AUTOTOK_TTS_PROVIDER`, default `local_wav`
 - `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
@@ -419,9 +441,24 @@ data/publications/<render_id>/tiktok/publication.json
 
 TikTok publishing uses the official Content Posting API. Dry-run is the default and records a redacted request plan. Real publishing requires an approved review package plus `--execute --confirm` and configured TikTok credentials. Scheduling is rejected for TikTok because no official scheduling field was verified for Direct Post in Phase 11. See `docs/PUBLISHING.md` for the provider verification notes and token lifecycle commands.
 
+## Operations
+
+Phase 12 keeps deployment local-first: install the Python package into an isolated environment on the machine that owns the media and data directory. It adds:
+
+- `autotok ops health` for local health checks
+- `autotok ops metrics` for artifact, job, review, and publication counts
+- `autotok ops backup` and `autotok ops restore` for ZIP-based data recovery
+- `autotok ops retention` for dry-run-first cleanup of transient cache/log/tmp files
+- `autotok ops audit` for dependency inventory and high-confidence secret scanning
+- `autotok ops profile` for a lightweight local performance baseline
+- `AUTOTOK_LOG_FORMAT=json` for structured logs
+
+See `docs/OPERATIONS.md` for install, monitoring, backup, restore, retention, audit, profiling, recovery, and upgrade procedures.
+
 ## Documentation
 
 - `docs/ARCHITECTURE.md`
 - `docs/PHASES.md`
 - `docs/STATUS.md`
 - `docs/PUBLISHING.md`
+- `docs/OPERATIONS.md`

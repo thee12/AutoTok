@@ -369,10 +369,64 @@ Excluded:
 
 Exit gate: a user can review and approve an export package without editing files manually.
 
+## Phase 11 - Official Publishing and Scheduling
+
+Goal: publish approved content through an official, supported platform integration.
+
+Status: complete.
+
+In scope:
+
+- official TikTok Content Posting API integration
+- capability verification from official provider docs
+- OAuth token lifecycle request helpers
+- environment-backed secret handling
+- dry-run publication records
+- explicit review approval and `--execute --confirm` gates
+- upload initialization, upload, status fetch, and status mapping
+- idempotency and duplicate prevention
+- scheduling rejection where official support is not verified
+- local audit records
+
+Excluded:
+
+- unofficial browser posting
+- autonomous posting without human approval
+- unsupported scheduling
+- engagement automation
+- analytics feedback
+
+Exit gate: an approved package can be published through the selected official integration without duplicate posting.
+
+## Phase 12 - Production Hardening and Deployment
+
+Goal: make the system maintainable for regular local use.
+
+Status: complete.
+
+In scope:
+
+- local Python package deployment guidance
+- structured JSON logs
+- operational health checks
+- local metrics snapshots
+- ZIP backup and safe restore
+- transient artifact-retention policy
+- dependency inventory and high-confidence secret scanning
+- lightweight performance profiling
+- operations runbook
+- recovery and upgrade procedures
+
+Excluded:
+
+- hosted service deployment
+- distributed workers
+- parallel job execution
+- analytics feedback
+- advanced templates
+
+Exit gate: the local deployment can be installed, monitored, backed up, restored, and upgraded using documented procedures.
+
 ## Later Phases
-
-Phase 11: official publishing and scheduling.
-
-Phase 12: production hardening and deployment.
 
 Phase 13: optional analytics and advanced templates.

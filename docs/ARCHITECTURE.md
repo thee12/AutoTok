@@ -1,6 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 11 adds official TikTok publishing while keeping rendering, review state, approvals, and publication audit records local-first.
+AutoTok is being built as a local-first modular monolith. Phase 12 adds local-first operations tooling while keeping rendering, review state, approvals, publication audit records, backups, and metrics on the operator machine.
 
 ## Current Shape
 
@@ -41,6 +41,7 @@ AutoTok is being built as a local-first modular monolith. Phase 11 adds official
 - `autotok publish tiktok` prepares a dry run or explicitly executes an approved TikTok Direct Post publish.
 - `autotok publish status` inspects local publication state or fetches official TikTok status.
 - `autotok publish token exchange` and `autotok publish token refresh` build or execute redacted OAuth token lifecycle requests.
+- `autotok ops health`, `metrics`, `backup`, `restore`, `retention`, `audit`, and `profile` provide local operational hardening commands.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
@@ -56,6 +57,7 @@ AutoTok is being built as a local-first modular monolith. Phase 11 adds official
 - `src/autotok/publishing_models.py` contains publication records, TikTok capability verification, options, statuses, and audit events.
 - `src/autotok/publishing_storage.py` persists publication records under `data/publications/`.
 - `src/autotok/publishing.py` contains the official TikTok Content Posting API adapter, OAuth helpers, dry-run workflow, status fetch, and duplicate-prevention logic.
+- `src/autotok/operations.py` contains health checks, metrics snapshots, ZIP backup/restore, transient retention, dependency/secret audit checks, and lightweight profiling.
 - `src/autotok/review_api.py` routes local dashboard API requests and serves the
   static review UI.
 - `src/autotok/review_server.py` adapts the review API to a localhost HTTP
@@ -125,6 +127,7 @@ safe built-in defaults:
 12. `AUTOTOK_TIKTOK_ACCESS_TOKEN`, optional TikTok user access token
 13. `AUTOTOK_TIKTOK_REFRESH_TOKEN`, optional TikTok refresh token
 14. `AUTOTOK_TIKTOK_TIMEOUT_SECONDS`, default `30`
+15. `AUTOTOK_LOG_FORMAT`, default `text`, set to `json` for structured operational logs
 
 Secrets must remain in environment variables or local ignored files. Phase 7 live Reddit discovery requires an OAuth bearer token supplied by environment; fixture discovery and all automated tests remain credential-free. Rendering still only reads approved local artifacts and uses local FFmpeg/FFprobe executables.
 
@@ -139,7 +142,7 @@ catalog records under `data/media/<media_id>/` and clip-preparation records unde
 `data/clips/<clip_id>/`. Phase 6 writes render packages under
 `data/renders/<render_id>/`. Phase 10 writes review packages under
 `data/reviews/<render_id>/`. Phase 11 writes publication records under
-`data/publications/<render_id>/tiktok/`.
+`data/publications/<render_id>/tiktok/`. Phase 12 backup and restore commands operate on the configured data directory and write backup archives only where explicitly requested.
 
 A stored story currently contains:
 
@@ -207,6 +210,8 @@ Phase 8 assesses stories with deterministic local rules before production use. I
 Phase 9 runs story-to-render jobs through persisted ordered stages. The runner marks stale running attempts failed before resume, skips already successful stages, retries failed stages up to the configured local attempt limit, records artifacts, and writes a job manifest. Batch execution is intentionally serial with explicit limits; no distributed queue or parallel worker pool is introduced.
 
 Phase 10 exposes completed render packages through a localhost-only review dashboard. The UI reads and writes review state through the same local API used by tests; it does not duplicate rendering, job, or publishing logic. Review edits are stored as snapshots and audit events under `data/reviews/` so original render artifacts remain intact.
+
+Phase 12 operational tooling is intentionally local and conservative. Health, metrics, audit, and profile commands are read-only except for harmless health probes. Backup writes a requested ZIP archive. Restore and retention are dry-run by default and require `--apply`; restore refuses non-empty targets and unsafe archive paths, while retention only targets transient cache/log/tmp files.
 
 ## Deferred Architecture
 

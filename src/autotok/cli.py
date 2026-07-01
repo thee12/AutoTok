@@ -40,6 +40,15 @@ from autotok.media_selection import (
 )
 from autotok.media_storage import MediaStore, StoredClip, StoredMedia
 from autotok.models import SourceType, StoryRecord
+from autotok.operations import (
+    audit_repository,
+    build_health_report,
+    build_metrics_report,
+    create_backup,
+    inspect_restore,
+    plan_retention,
+    profile_operations,
+)
 from autotok.publishing import (
     TikTokContentPostingAdapter,
     build_tiktok_token_exchange_request,
@@ -116,6 +125,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_job_parser(subcommands)
     _add_review_parser(subcommands)
     _add_publish_parser(subcommands)
+    _add_ops_parser(subcommands)
     return parser
 
 
@@ -871,6 +881,182 @@ def _add_publish_parser(subcommands: argparse._SubParsersAction[argparse.Argumen
     refresh.set_defaults(handler=run_publish_token_refresh)
 
 
+def _add_ops_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    ops = subcommands.add_parser(
+        "ops",
+        help="Run local operational health, backup, audit, and maintenance commands.",
+    )
+    ops_subcommands = ops.add_subparsers(dest="ops_command", required=True)
+
+    health = ops_subcommands.add_parser("health", help="Run local health checks.")
+    health.add_argument("--json", action="store_true", help="Print health report as JSON.")
+    health.set_defaults(handler=run_ops_health)
+
+    metrics = ops_subcommands.add_parser("metrics", help="Print local artifact and job metrics.")
+    metrics.add_argument("--json", action="store_true", help="Print metrics as JSON.")
+    metrics.set_defaults(handler=run_ops_metrics)
+
+    backup = ops_subcommands.add_parser("backup", help="Create a ZIP backup of the data directory.")
+    backup.add_argument("--output", type=Path, required=True, help="Backup ZIP path to create.")
+    backup.add_argument(
+        "--include-cache",
+        action="store_true",
+        help="Include cache files that are excluded by default.",
+    )
+    backup.add_argument("--json", action="store_true", help="Print backup result as JSON.")
+    backup.set_defaults(handler=run_ops_backup)
+
+    restore = ops_subcommands.add_parser(
+        "restore",
+        help="Inspect or restore a backup archive into an empty data directory.",
+    )
+    restore.add_argument("--archive", type=Path, required=True, help="Backup ZIP to restore.")
+    restore.add_argument(
+        "--target-data-dir",
+        type=Path,
+        help="Restore target; defaults to the configured data directory.",
+    )
+    restore.add_argument("--apply", action="store_true", help="Actually restore files.")
+    restore.add_argument("--json", action="store_true", help="Print restore result as JSON.")
+    restore.set_defaults(handler=run_ops_restore)
+
+    retention = ops_subcommands.add_parser(
+        "retention",
+        help="Plan or apply cleanup for transient cache/log/tmp files.",
+    )
+    retention.add_argument("--older-than-days", type=int, required=True)
+    retention.add_argument("--apply", action="store_true", help="Delete matching transient files.")
+    retention.add_argument("--json", action="store_true", help="Print retention plan as JSON.")
+    retention.set_defaults(handler=run_ops_retention)
+
+    audit = ops_subcommands.add_parser(
+        "audit",
+        help="Run local dependency inventory and high-confidence secret checks.",
+    )
+    audit.add_argument("--json", action="store_true", help="Print audit report as JSON.")
+    audit.set_defaults(handler=run_ops_audit)
+
+    profile = ops_subcommands.add_parser(
+        "profile",
+        help="Profile local metrics collection as an operational baseline.",
+    )
+    profile.add_argument("--iterations", type=int, default=3)
+    profile.add_argument("--json", action="store_true", help="Print profile result as JSON.")
+    profile.set_defaults(handler=run_ops_profile)
+
+
+def run_ops_health(args: argparse.Namespace) -> int:
+    """Run local operational health checks."""
+    config = _load_config(args)
+    report = build_health_report(config.data_dir)
+    payload = report.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Operational health: {report.status}")
+        for check in report.checks:
+            print(f"{check.status}: {check.name} - {check.message}")
+    return 1 if report.status == "error" else 0
+
+
+def run_ops_metrics(args: argparse.Namespace) -> int:
+    """Print local operational metrics."""
+    config = _load_config(args)
+    payload = build_metrics_report(config.data_dir)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        totals = payload["totals"]
+        print("Operational metrics")
+        if isinstance(totals, Mapping):
+            print(f"Files: {totals['file_count']}")
+            print(f"Bytes: {totals['bytes']}")
+        print(f"Data directory: {payload['data_dir']}")
+    return 0
+
+
+def run_ops_backup(args: argparse.Namespace) -> int:
+    """Create a data-directory backup."""
+    config = _load_config(args)
+    payload = create_backup(
+        config.data_dir,
+        args.output,
+        include_cache=args.include_cache,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        manifest = payload["manifest"]
+        print(f"Backup: {payload['archive']}")
+        if isinstance(manifest, Mapping):
+            print(f"Files: {manifest['file_count']}")
+            print(f"Bytes: {manifest['bytes']}")
+    return 0
+
+
+def run_ops_restore(args: argparse.Namespace) -> int:
+    """Inspect or restore a backup archive."""
+    config = _load_config(args)
+    target = config.data_dir if args.target_data_dir is None else args.target_data_dir
+    payload = inspect_restore(args.archive, target, apply=args.apply)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        mode = "Restored" if payload.get("restored") else "Restore dry run"
+        print(f"{mode}: {payload['archive']}")
+        print(f"Target: {payload['target_data_dir']}")
+        print(f"Files: {payload['file_count']}")
+        if not args.apply:
+            print("Dry run: pass --apply to restore into an empty target directory.")
+    return 0
+
+
+def run_ops_retention(args: argparse.Namespace) -> int:
+    """Plan or apply transient artifact cleanup."""
+    config = _load_config(args)
+    payload = plan_retention(
+        config.data_dir,
+        older_than_days=args.older_than_days,
+        apply=args.apply,
+    )
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        mode = "Deleted" if args.apply else "Matched"
+        print(f"{mode} transient files: {payload['candidate_count']}")
+        if not args.apply:
+            print("Dry run: pass --apply to delete matching transient files.")
+    return 0
+
+
+def run_ops_audit(args: argparse.Namespace) -> int:
+    """Run local dependency and secret audit checks."""
+    _load_config(args)
+    report = audit_repository(Path.cwd())
+    payload = report.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Operational audit: {report.status}")
+        for check in report.checks:
+            print(f"{check.status}: {check.name} - {check.message}")
+    return 1 if report.status == "error" else 0
+
+
+def run_ops_profile(args: argparse.Namespace) -> int:
+    """Profile local metrics collection."""
+    config = _load_config(args)
+    payload = profile_operations(config.data_dir, iterations=args.iterations)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print("Operational profile")
+        print(f"Operation: {payload['operation']}")
+        print(f"Iterations: {payload['iterations']}")
+        print(f"Average seconds: {payload['avg_seconds']:.6f}")
+    return 0
+
+
 def run_review_serve(args: argparse.Namespace) -> int:
     """Start the local review dashboard server."""
     config = _load_config(args)
@@ -1326,6 +1512,7 @@ def run_doctor(args: argparse.Namespace) -> int:
         "version": __version__,
         "environment": config.environment,
         "log_level": config.log_level,
+        "log_format": config.log_format,
         "data_dir": str(config.data_dir),
         "tts_provider": config.tts_provider,
         "tts_timeout_seconds": config.tts_timeout_seconds,
@@ -1346,6 +1533,7 @@ def run_doctor(args: argparse.Namespace) -> int:
         print(f"Version: {diagnostic['version']}")
         print(f"Environment: {diagnostic['environment']}")
         print(f"Log level: {diagnostic['log_level']}")
+        print(f"Log format: {diagnostic['log_format']}")
         print(f"Data directory: {diagnostic['data_dir']}")
         print(f"TTS provider: {diagnostic['tts_provider']}")
         print(f"TTS timeout seconds: {diagnostic['tts_timeout_seconds']}")
@@ -1730,7 +1918,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _load_config(args: argparse.Namespace) -> AppConfig:
     config = AppConfig.from_environment().with_overrides(data_dir=args.data_dir)
-    configure_logging(config.log_level)
+    configure_logging(config.log_level, log_format=config.log_format)
     return config
 
 
