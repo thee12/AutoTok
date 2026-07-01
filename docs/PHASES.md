@@ -310,27 +310,35 @@ before transformation.
 
 ## Phase 9 - Persistent Orchestration and Batch Generation
 
-Status: in progress checkpoint.
+Goal: turn isolated local commands into resumable, traceable jobs.
 
-Checkpoint implemented:
+Status: complete.
+
+In scope:
 
 - SQLite schema initialization and version check
 - persistent job, stage, attempt, and artifact dataclasses
-- local job store create/load/list/update operations
-- attempt start/finish tracking
-- artifact reference persistence
-- focused SQLite persistence tests
+- local job store create/load/list/update/delete operations
+- deterministic insertion-order listing for jobs, stages, and artifacts
+- idempotent ordered stage execution that skips already successful stages
+- retries for failed stages up to a local attempt limit
+- stale running-attempt recovery before resume
+- story-to-render orchestration using the existing local Phase 1-6 components
+- batch job creation with limits and serial `run-batch` execution
+- local concurrency boundary: one serial runner per command invocation, no worker pool
+- run manifests under `data/jobs/<job_id>/manifest.json`
+- safe cleanup/retention command with dry-run default and explicit `--apply`
+- CLI commands for job creation, listing, inspection, run, resume, batch run, and cleanup
+- focused storage, orchestration, crash-recovery, cleanup, and CLI tests
 
-Remaining:
+Excluded:
 
-- idempotent stage execution
-- retries for transient failures
-- resume from failed stage
-- batch limits and local concurrency controls
-- run manifests
-- cleanup and retention commands
-- crash-recovery tests
-- CLI commands for job creation, inspection, and resume
+- review dashboard or UI
+- distributed queues, background workers, or parallel execution
+- publishing, scheduling, or engagement automation
+- analytics feedback
+
+Exit gate: a batch can be interrupted and safely resumed without duplicating completed work.
 
 ## Later Phases
 

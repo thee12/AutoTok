@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 9 - Persistent orchestration and batch generation (checkpoint in progress).
+Phase 9 - Persistent orchestration and batch generation (complete).
 
 ## Implemented
 
@@ -90,10 +90,15 @@ Phase 9 - Persistent orchestration and batch generation (checkpoint in progress)
 - content gate assessment, inspection, and override through `autotok story
   assess`, `autotok story gate`, and `autotok story override`
 - transform-time gate enforcement for discovered Reddit stories
-- Phase 9 checkpoint SQLite job persistence foundation
+- SQLite-backed persistent jobs under `data/jobs.sqlite3`
 - persistent job, stage, attempt, and artifact dataclasses
-- local `data/jobs.sqlite3` schema initialization and version check
-- job/stage status updates, attempt tracking, artifact references, and ordered job queries
+- job/stage status updates, attempt tracking, artifact references, deterministic ordered queries, and job deletion
+- resumable story-to-render orchestration with idempotent stage skipping
+- retry limits for failed stages and stale running-attempt recovery before resume
+- job manifests under `data/jobs/<job_id>/manifest.json`
+- batch job creation, bounded serial `run-batch` execution, and local no-worker concurrency boundary
+- safe job cleanup/retention with dry-run default and explicit `--apply`
+- job creation, listing, inspection, run, resume, batch-run, and cleanup through `autotok job ...`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -101,8 +106,8 @@ Phase 9 - Persistent orchestration and batch generation (checkpoint in progress)
 
 ## Not Implemented
 
-The repository does not yet execute resumable jobs, run batch orchestration, provide cleanup/retention commands, expose job CLI commands, provide a UI, publish content, schedule posts, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not yet provide a UI, publish content, schedule posts, run distributed workers, execute jobs in parallel, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 9 Checkpoint Evidence
+## Phase 9 Completion Evidence
 
-The Phase 9 checkpoint adds a SQLite-backed `JobStore` foundation with schema versioning, jobs, stages, attempts, and artifact references. Focused tests cover initialization, status updates, attempts, artifact persistence, ordered listing, and missing-record errors. Phase 9 is not complete yet: resumable stage execution, retries, batch limits, manifests, cleanup/retention, crash recovery, and CLI commands remain for the next pass.
+Phase 9 adds a SQLite-backed `JobStore`, resumable local job runner, story-to-render stage definitions, batch creation and serial batch execution, retry limits, stale running-attempt recovery, manifest writing, and safe cleanup/retention. Focused tests cover storage initialization and updates, resume without rerunning successful stages, crash recovery, max-attempt failure, cleanup dry-run/apply behavior, full job CLI execution through fake FFmpeg/FFprobe, and batch run limits. Full verification passed with 88 tests.

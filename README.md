@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 8, with a Phase 9 checkpoint for SQLite job persistence.
+currently complete through Phase 9, with persistent local jobs, resumable orchestration, batch limits, and run manifests.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. The Phase 9 checkpoint introduces a local SQLite job database foundation, but resumable orchestration is not complete yet. No UI or publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 9 stores local job state in SQLite and runs resumable story-to-render jobs serially on the local machine. No UI or publishing behavior exists yet. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -351,15 +351,24 @@ Each render directory contains:
 Phase 6 completes the first local MVP. The output is saved for human review.
 Phase 7 adds approved public source discovery and import. Phase 8 adds local
 scoring, duplicate detection, review flags, and content gates before discovered
-stories enter transformation. AutoTok still does not run persistent jobs, provide
-a review dashboard, publish, schedule, or automate engagement.
+stories enter transformation. Phase 9 adds persistent local jobs and resumable
+story-to-render orchestration. AutoTok still does not provide a review dashboard,
+publish, schedule, or automate engagement.
 
-## Phase 9 Checkpoint
+## Persistent Jobs
 
-The current Phase 9 checkpoint adds internal SQLite persistence under
-`data/jobs.sqlite3` for jobs, stages, attempts, and artifact references. It does
-not yet expose job CLI commands, execute resumable stages, run batches, or write
-run manifests.
+Phase 9 stores job state in `data/jobs.sqlite3` and writes job manifests under
+`data/jobs/<job_id>/manifest.json`. Jobs track stages, attempts, artifact
+references, statuses, retry failures, and resumable progress.
+
+Useful commands:
+
+- `autotok job create --story-id <story_id>` queues one or more story jobs.
+- `autotok job run <job_id>` runs or resumes a story-to-render job.
+- `autotok job run-batch <batch_id> --limit <n>` runs a bounded serial batch.
+- `autotok job inspect <job_id>` inspects stages, attempts, and artifacts.
+- `autotok job cleanup` previews retention cleanup; pass `--apply` to delete
+  matching job records and job manifests without deleting generated media.
 
 ## Documentation
 

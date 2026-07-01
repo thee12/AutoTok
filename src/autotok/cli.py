@@ -17,6 +17,18 @@ from autotok.content_gate_storage import ContentGateStore, StoredContentGate
 from autotok.content_gates import assess_story, build_override_event
 from autotok.errors import AutoTokError, UserInputError
 from autotok.ingestion import build_manual_file_record, build_manual_text_record
+from autotok.job_models import JobStatus
+from autotok.job_orchestration import (
+    JOB_MANIFEST_DIRNAME,
+    JOB_MANIFEST_FILENAME,
+    JobRunOptions,
+    StoryPipelineOptions,
+    build_story_to_render_stage_definitions,
+    cleanup_jobs,
+    create_story_jobs,
+    run_job,
+)
+from autotok.job_storage import JobStore
 from autotok.logging import configure_logging
 from autotok.media_models import MediaOrientation
 from autotok.media_selection import (
@@ -85,6 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_subtitle_parser(subcommands)
     _add_media_parser(subcommands)
     _add_render_parser(subcommands)
+    _add_job_parser(subcommands)
     return parser
 
 
@@ -529,6 +542,365 @@ def _add_render_parser(subcommands: argparse._SubParsersAction[argparse.Argument
         "--json", action="store_true", help="Print render manifest as JSON."
     )
     render_inspect.set_defaults(handler=run_render_inspect)
+
+
+def _add_job_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    job = subcommands.add_parser(
+        "job",
+        help="Create, inspect, resume, and clean up persistent local jobs.",
+    )
+    job_subcommands = job.add_subparsers(dest="job_command", required=True)
+
+    job_create = job_subcommands.add_parser(
+        "create",
+        help="Create queued story-to-render job records.",
+    )
+    job_create.add_argument(
+        "--story-id",
+        action="append",
+        required=True,
+        help="Story ID to enqueue; may be repeated for a local batch.",
+    )
+    job_create.add_argument("--batch-id", help="Optional batch identifier to store on jobs.")
+    job_create.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum number of provided story IDs to enqueue.",
+    )
+    job_create.add_argument("--json", action="store_true", help="Print created jobs as JSON.")
+    job_create.set_defaults(handler=run_job_create)
+
+    job_list = job_subcommands.add_parser(
+        "list",
+        help="List persistent jobs.",
+    )
+    job_list.add_argument(
+        "--status",
+        choices=[item.value for item in JobStatus],
+        help="Only list jobs with this status.",
+    )
+    job_list.add_argument("--json", action="store_true", help="Print jobs as JSON.")
+    job_list.set_defaults(handler=run_job_list)
+
+    job_inspect = job_subcommands.add_parser(
+        "inspect",
+        help="Inspect a persistent job, its stages, attempts, and artifacts.",
+    )
+    job_inspect.add_argument("job_id", help="Job ID to inspect.")
+    job_inspect.add_argument("--json", action="store_true", help="Print job details as JSON.")
+    job_inspect.set_defaults(handler=run_job_inspect)
+
+    for command_name in ("run", "resume"):
+        job_run = job_subcommands.add_parser(
+            command_name,
+            help="Run or resume a story-to-render job.",
+        )
+        job_run.add_argument("job_id", help="Job ID to run or resume.")
+        job_run.add_argument(
+            "--target-seconds",
+            type=int,
+            default=DEFAULT_TARGET_SECONDS,
+            help="Target narration duration for the transform stage.",
+        )
+        job_run.add_argument(
+            "--tag",
+            action="append",
+            default=[],
+            help="Required background-media tag for clip selection; may be repeated.",
+        )
+        job_run.add_argument(
+            "--orientation",
+            choices=["any", *[item.value for item in MediaOrientation]],
+            default=MediaOrientation.PORTRAIT.value,
+            help="Required background-media orientation for clip selection.",
+        )
+        job_run.add_argument(
+            "--seed",
+            type=int,
+            default=DEFAULT_SELECTION_SEED,
+            help="Deterministic clip-selection seed.",
+        )
+        job_run.add_argument(
+            "--avoid-recent",
+            type=int,
+            default=DEFAULT_RECENT_AVOIDANCE_LIMIT,
+            help="Number of recently selected media IDs to avoid when possible.",
+        )
+        job_run.add_argument(
+            "--max-attempts",
+            type=int,
+            default=2,
+            help="Maximum attempts per stage before the job fails.",
+        )
+        job_run.add_argument(
+            "--stop-after",
+            choices=["transform", "approve_script", "narrate", "subtitle", "select_clip", "render"],
+            help="Stop after a successful stage to test resumability.",
+        )
+        job_run.add_argument(
+            "--ffmpeg-path",
+            type=Path,
+            default=Path("ffmpeg"),
+            help="Path to ffmpeg executable for the render stage.",
+        )
+        job_run.add_argument(
+            "--ffprobe-path",
+            type=Path,
+            default=Path("ffprobe"),
+            help="Path to ffprobe executable for render output validation.",
+        )
+        job_run.add_argument("--json", action="store_true", help="Print run summary as JSON.")
+        job_run.set_defaults(handler=run_job_run)
+
+    job_run_batch = job_subcommands.add_parser(
+        "run-batch",
+        help="Run or resume jobs in one local batch serially.",
+    )
+    job_run_batch.add_argument("batch_id", help="Batch ID to run or resume.")
+    job_run_batch.add_argument(
+        "--limit",
+        type=int,
+        help="Maximum jobs from the batch to run in this invocation.",
+    )
+    job_run_batch.add_argument(
+        "--target-seconds",
+        type=int,
+        default=DEFAULT_TARGET_SECONDS,
+        help="Target narration duration for the transform stage.",
+    )
+    job_run_batch.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        help="Required background-media tag for clip selection; may be repeated.",
+    )
+    job_run_batch.add_argument(
+        "--orientation",
+        choices=["any", *[item.value for item in MediaOrientation]],
+        default=MediaOrientation.PORTRAIT.value,
+        help="Required background-media orientation for clip selection.",
+    )
+    job_run_batch.add_argument(
+        "--seed",
+        type=int,
+        default=DEFAULT_SELECTION_SEED,
+        help="Deterministic clip-selection seed.",
+    )
+    job_run_batch.add_argument(
+        "--avoid-recent",
+        type=int,
+        default=DEFAULT_RECENT_AVOIDANCE_LIMIT,
+        help="Number of recently selected media IDs to avoid when possible.",
+    )
+    job_run_batch.add_argument(
+        "--max-attempts",
+        type=int,
+        default=2,
+        help="Maximum attempts per stage before a job fails.",
+    )
+    job_run_batch.add_argument(
+        "--stop-after",
+        choices=["transform", "approve_script", "narrate", "subtitle", "select_clip", "render"],
+        help="Stop each run job after a successful stage to test resumability.",
+    )
+    job_run_batch.add_argument(
+        "--ffmpeg-path",
+        type=Path,
+        default=Path("ffmpeg"),
+        help="Path to ffmpeg executable for the render stage.",
+    )
+    job_run_batch.add_argument(
+        "--ffprobe-path",
+        type=Path,
+        default=Path("ffprobe"),
+        help="Path to ffprobe executable for render output validation.",
+    )
+    job_run_batch.add_argument("--json", action="store_true", help="Print batch summary as JSON.")
+    job_run_batch.set_defaults(handler=run_job_run_batch)
+
+    job_cleanup = job_subcommands.add_parser(
+        "cleanup",
+        help="Dry-run or apply cleanup of old job records and job manifests.",
+    )
+    job_cleanup.add_argument(
+        "--status",
+        choices=[item.value for item in JobStatus],
+        default=JobStatus.SUCCEEDED.value,
+        help="Job status eligible for cleanup.",
+    )
+    job_cleanup.add_argument(
+        "--older-than-days",
+        type=int,
+        default=30,
+        help="Only match jobs whose updated timestamp is at least this old.",
+    )
+    job_cleanup.add_argument(
+        "--apply",
+        action="store_true",
+        help="Actually delete matching job records and job manifests.",
+    )
+    job_cleanup.add_argument("--json", action="store_true", help="Print cleanup result as JSON.")
+    job_cleanup.set_defaults(handler=run_job_cleanup)
+
+
+def run_job_create(args: argparse.Namespace) -> int:
+    """Create queued persistent jobs for one or more stories."""
+    config = _load_config(args)
+    story_store = StoryStore(config.data_dir)
+    for story_id in args.story_id:
+        story_store.load(story_id)
+    jobs = create_story_jobs(
+        JobStore(config.data_dir),
+        args.story_id,
+        batch_id=args.batch_id,
+        limit=args.limit,
+    )
+    payload = {"jobs": [job.to_dict() for job in jobs]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        for job in jobs:
+            print(f"Created job: {job.job_id}")
+            print(f"Story: {job.story_id}")
+            print(f"Status: {job.status.value}")
+            if job.batch_id is not None:
+                print(f"Batch: {job.batch_id}")
+    return 0
+
+
+def run_job_list(args: argparse.Namespace) -> int:
+    """List persistent jobs."""
+    config = _load_config(args)
+    status = JobStatus(args.status) if args.status is not None else None
+    jobs = JobStore(config.data_dir).list_jobs(status=status)
+    payload = {"jobs": [job.to_dict() for job in jobs]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        if not jobs:
+            print("No jobs found.")
+        for job in jobs:
+            story = job.story_id or "(none)"
+            batch = f" batch={job.batch_id}" if job.batch_id is not None else ""
+            print(f"{job.job_id} {job.status.value} story={story}{batch}")
+    return 0
+
+
+def run_job_inspect(args: argparse.Namespace) -> int:
+    """Inspect a persistent job."""
+    config = _load_config(args)
+    store = JobStore(config.data_dir)
+    payload = _job_payload(config, store, args.job_id)
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        job = store.load_job(args.job_id)
+        stages = store.list_stages(args.job_id)
+        artifacts = store.list_artifacts(args.job_id)
+        print(f"Job: {job.job_id}")
+        print(f"Status: {job.status.value}")
+        print(f"Story: {job.story_id or '(none)'}")
+        print(f"Batch: {job.batch_id or '(none)'}")
+        print(f"Manifest: {payload['manifest_path']}")
+        print("Stages:")
+        for stage in stages:
+            print(f"  {stage.name}: {stage.status.value} attempts={stage.attempt_count}")
+        print(f"Artifacts: {len(artifacts)}")
+    return 0
+
+
+def run_job_run(args: argparse.Namespace) -> int:
+    """Run or resume a persistent story-to-render job."""
+    config = _load_config(args)
+    store = JobStore(config.data_dir)
+    pipeline_options = _story_pipeline_options_from_args(args)
+    summary = run_job(
+        config=config,
+        store=store,
+        job_id=args.job_id,
+        stage_definitions=build_story_to_render_stage_definitions(config, pipeline_options),
+        options=JobRunOptions(max_attempts=args.max_attempts, stop_after=args.stop_after),
+    )
+    payload = summary.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Job: {summary.job.job_id}")
+        print(f"Status: {summary.job.status.value}")
+        print(f"Completed: {summary.completed}")
+        if summary.stopped_after is not None:
+            print(f"Stopped after: {summary.stopped_after}")
+        print(f"Manifest: {summary.manifest_path}")
+        for stage in summary.stages:
+            print(f"{stage.name}: {stage.status.value} attempts={stage.attempt_count}")
+    return 0 if summary.job.status is not JobStatus.FAILED else 1
+
+
+def run_job_run_batch(args: argparse.Namespace) -> int:
+    """Run or resume jobs in a persistent local batch."""
+    if args.limit is not None and args.limit <= 0:
+        raise UserInputError("Batch run limit must be greater than zero.")
+    config = _load_config(args)
+    store = JobStore(config.data_dir)
+    jobs = [
+        job
+        for job in store.list_jobs()
+        if job.batch_id == args.batch_id
+        and job.status not in {JobStatus.CANCELED, JobStatus.SUCCEEDED}
+    ]
+    if args.limit is not None:
+        jobs = jobs[: args.limit]
+    if not jobs:
+        raise UserInputError(f"No runnable jobs were found for batch: {args.batch_id}")
+    pipeline_options = _story_pipeline_options_from_args(args)
+    summaries = [
+        run_job(
+            config=config,
+            store=store,
+            job_id=job.job_id,
+            stage_definitions=build_story_to_render_stage_definitions(config, pipeline_options),
+            options=JobRunOptions(max_attempts=args.max_attempts, stop_after=args.stop_after),
+        )
+        for job in jobs
+    ]
+    payload = {
+        "batch_id": args.batch_id,
+        "job_count": len(summaries),
+        "summaries": [summary.to_dict() for summary in summaries],
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Batch: {args.batch_id}")
+        print(f"Jobs run: {len(summaries)}")
+        for summary in summaries:
+            print(f"{summary.job.job_id}: {summary.job.status.value} completed={summary.completed}")
+    return 1 if any(summary.job.status is JobStatus.FAILED for summary in summaries) else 0
+
+
+def run_job_cleanup(args: argparse.Namespace) -> int:
+    """Dry-run or apply cleanup for old job records and manifests."""
+    config = _load_config(args)
+    result = cleanup_jobs(
+        store=JobStore(config.data_dir),
+        data_dir=config.data_dir,
+        status=JobStatus(args.status),
+        older_than_days=args.older_than_days,
+        apply=args.apply,
+    )
+    payload = result.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        mode = "Deleted" if args.apply else "Matched"
+        print(
+            f"{mode} jobs: {len(result.deleted_job_ids if args.apply else result.matched_job_ids)}"
+        )
+        if not args.apply:
+            print("Dry run: pass --apply to delete matching job records and job manifests.")
+        for job_id in result.deleted_job_ids if args.apply else result.matched_job_ids:
+            print(job_id)
+    return 0
 
 
 def run_story_assess(args: argparse.Namespace) -> int:
@@ -1123,6 +1495,36 @@ def _assert_story_transform_gate(config: AppConfig, story: StoryRecord) -> None:
             "Story content gate must be approved before transformation; "
             f"current effective decision is {stored.record.effective_decision.value}."
         )
+
+
+def _story_pipeline_options_from_args(args: argparse.Namespace) -> StoryPipelineOptions:
+    orientation = None if args.orientation == "any" else MediaOrientation(args.orientation)
+    return StoryPipelineOptions(
+        target_seconds=args.target_seconds,
+        media_tags=tuple(args.tag),
+        media_orientation=orientation,
+        seed=args.seed,
+        avoid_recent=args.avoid_recent,
+        ffmpeg_path=args.ffmpeg_path,
+        ffprobe_path=args.ffprobe_path,
+    )
+
+
+def _job_payload(config: AppConfig, store: JobStore, job_id: str) -> dict[str, object]:
+    job = store.load_job(job_id)
+    stages = store.list_stages(job_id)
+    return {
+        "job": job.to_dict(),
+        "stages": [stage.to_dict() for stage in stages],
+        "attempts_by_stage": {
+            stage.stage_id: [attempt.to_dict() for attempt in store.list_attempts(stage.stage_id)]
+            for stage in stages
+        },
+        "artifacts": [artifact.to_dict() for artifact in store.list_artifacts(job_id)],
+        "manifest_path": str(
+            config.data_dir / JOB_MANIFEST_DIRNAME / job_id / JOB_MANIFEST_FILENAME
+        ),
+    }
 
 
 def _stored_content_gate_payload(stored: StoredContentGate) -> dict[str, Any]:

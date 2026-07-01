@@ -96,10 +96,10 @@ class JobStore:
         """List jobs in deterministic creation order."""
         self.initialize()
         if status is None:
-            rows = self._fetch_all("SELECT * FROM jobs ORDER BY created_at, job_id", ())
+            rows = self._fetch_all("SELECT * FROM jobs ORDER BY rowid", ())
         else:
             rows = self._fetch_all(
-                "SELECT * FROM jobs WHERE status = ? ORDER BY created_at, job_id",
+                "SELECT * FROM jobs WHERE status = ? ORDER BY rowid",
                 (status.value,),
             )
         return tuple(_job_from_row(row) for row in rows)
@@ -167,11 +167,32 @@ class JobStore:
             raise PersistenceError(f"Could not add stage to job: {job_id}") from exc
         return record
 
+    def get_stage_by_name(self, job_id: str, name: str) -> StageRecord | None:
+        """Return a job stage by name, if it exists."""
+        self.load_job(job_id)
+        cleaned_name = name.strip()
+        if not cleaned_name:
+            raise UserInputError("Stage name must not be empty.")
+        row = self._fetch_one(
+            "SELECT * FROM stages WHERE job_id = ? AND name = ? ORDER BY created_at LIMIT 1",
+            (job_id, cleaned_name),
+        )
+        if row is None:
+            return None
+        return _stage_from_row(row)
+
+    def ensure_stage(self, job_id: str, name: str) -> StageRecord:
+        """Load a stage by name or create it when missing."""
+        stage = self.get_stage_by_name(job_id, name)
+        if stage is not None:
+            return stage
+        return self.add_stage(job_id, name)
+
     def list_stages(self, job_id: str) -> tuple[StageRecord, ...]:
         """List stages for a job in creation order."""
         self.load_job(job_id)
         rows = self._fetch_all(
-            "SELECT * FROM stages WHERE job_id = ? ORDER BY created_at, stage_id",
+            "SELECT * FROM stages WHERE job_id = ? ORDER BY rowid",
             (job_id,),
         )
         return tuple(_stage_from_row(row) for row in rows)
@@ -363,14 +384,56 @@ class JobStore:
             raise PersistenceError(f"Could not add artifact to job: {job_id}") from exc
         return record
 
+    def add_artifact_once(
+        self,
+        job_id: str,
+        *,
+        artifact_type: ArtifactType,
+        artifact_ref: str,
+        stage_id: str | None = None,
+        path: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        created_at: datetime | None = None,
+    ) -> JobArtifactRecord:
+        """Attach an artifact unless the same reference is already tracked."""
+        cleaned_ref = artifact_ref.strip()
+        if not cleaned_ref:
+            raise UserInputError("Artifact reference must not be empty.")
+        for artifact in self.list_artifacts(job_id):
+            if (
+                artifact.stage_id == stage_id
+                and artifact.artifact_type is artifact_type
+                and artifact.artifact_ref == cleaned_ref
+                and artifact.path == path
+            ):
+                return artifact
+        return self.add_artifact(
+            job_id,
+            artifact_type=artifact_type,
+            artifact_ref=cleaned_ref,
+            stage_id=stage_id,
+            path=path,
+            metadata=metadata,
+            created_at=created_at,
+        )
+
     def list_artifacts(self, job_id: str) -> tuple[JobArtifactRecord, ...]:
         """List artifacts for a job in creation order."""
         self.load_job(job_id)
         rows = self._fetch_all(
-            "SELECT * FROM artifacts WHERE job_id = ? ORDER BY created_at, job_artifact_id",
+            "SELECT * FROM artifacts WHERE job_id = ? ORDER BY rowid",
             (job_id,),
         )
         return tuple(_artifact_from_row(row) for row in rows)
+
+    def delete_job(self, job_id: str) -> None:
+        """Delete one job record and cascading stage, attempt, and artifact records."""
+        self.load_job(job_id)
+        try:
+            with self._connect() as connection:
+                connection.execute("DELETE FROM jobs WHERE job_id = ?", (job_id,))
+        except sqlite3.Error as exc:
+            raise PersistenceError(f"Could not delete job record: {job_id}") from exc
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)

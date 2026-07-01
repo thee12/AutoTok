@@ -1,6 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 8 adds local scoring, deduplication, and content gates while keeping the rendering pipeline local-first; no database, UI, or publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 9 adds SQLite-backed job orchestration while keeping execution serial and local-first; no UI or publishing behavior exists yet.
 
 ## Current Shape
 
@@ -33,13 +33,17 @@ AutoTok is being built as a local-first modular monolith. Phase 8 adds local sco
 - `autotok render create` composes background media, narration audio, and
   burned-in subtitles into a validated portrait MP4 package.
 - `autotok render inspect` loads and summarizes a completed render manifest.
+- `autotok job create`, `job run`, `job resume`, `job run-batch`, `job inspect`,
+  `job list`, and `job cleanup` manage persistent resumable local jobs.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
 - `src/autotok/content_gates.py` contains deterministic local scoring and gate rules.
 - `src/autotok/content_gate_storage.py` persists content gate artifacts.
-- `src/autotok/job_models.py` contains the Phase 9 checkpoint job, stage, attempt, and artifact dataclasses.
-- `src/autotok/job_storage.py` contains the Phase 9 checkpoint SQLite persistence foundation.
+- `src/autotok/job_models.py` contains persistent job, stage, attempt, and artifact dataclasses.
+- `src/autotok/job_storage.py` contains SQLite job persistence.
+- `src/autotok/job_orchestration.py` contains resumable stage execution, retry,
+  crash-recovery, batch-run, manifest, and retention helpers.
 - `src/autotok/source_models.py` contains source discovery dataclasses.
 - `src/autotok/source_adapters.py` contains the Phase 7 Reddit Data API adapter, pagination, rate-limit capture, and filtering.
 - `src/autotok/source_ingestion.py` converts discovered posts into canonical story records.
@@ -82,7 +86,8 @@ AutoTok is being built as a local-first modular monolith. Phase 8 adds local sco
   transformation, script review, audio probing, TTS providers, audio storage,
   subtitle timing, subtitle exports, subtitle CLI behavior, background-media
   probing, media storage, deterministic selection, media CLI behavior, render
-  command construction, render validation, manifests, and render CLI behavior.
+  command construction, render validation, manifests, render CLI behavior,
+  SQLite job storage, job orchestration, crash recovery, and job CLI behavior.
 
 ## Configuration
 
@@ -175,7 +180,7 @@ The repository ignores local runtime directories such as `data/`, `inputs/`,
 
 Phase 8 assesses stories with deterministic local rules before production use. It records exact duplicate matches by content hash, near-duplicate matches by token-set similarity, quality score components, duration suitability, privacy and policy warnings, reject reasons, review flags, and a manual override trail. Discovered Reddit stories must have an approved effective gate decision before transformation; manual stories remain transformable unless a stored gate exists and is not approved.
 
-Phase 9 is in progress. The current checkpoint provides SQLite persistence for jobs, stages, attempts, and artifact references. Resumable execution, retries, batch orchestration, cleanup/retention commands, run manifests, review UI, scheduling, publishing, analytics, and engagement automation remain deferred.
+Phase 9 runs story-to-render jobs through persisted ordered stages. The runner marks stale running attempts failed before resume, skips already successful stages, retries failed stages up to the configured local attempt limit, records artifacts, and writes a job manifest. Batch execution is intentionally serial with explicit limits; no distributed queue or parallel worker pool is introduced.
 
 ## Deferred Architecture
 
@@ -183,6 +188,5 @@ The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- SQLite persistence and batch orchestration;
 - review UI;
 - official publishing adapters.
