@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Thread
 from typing import Any
+from urllib.request import urlopen
 
 import pytest
 
@@ -14,6 +16,7 @@ from autotok.render import build_render_spec, render_video_package
 from autotok.render_storage import RenderStore
 from autotok.review_api import MP4_CONTENT_TYPE, ReviewApi
 from autotok.review_models import ReviewPackageStatus
+from autotok.review_server import build_review_server
 from autotok.review_storage import ReviewStore
 from autotok.script_storage import ScriptStore
 from autotok.storage import StoryStore
@@ -138,6 +141,23 @@ def test_review_api_reports_route_and_validation_errors(tmp_path: Path) -> None:
     assert "not found" in missing[1]["error"]
     assert invalid[0] == 400
     assert "Regeneration stage" in invalid[1]["error"]
+
+
+def test_review_server_health_route_responds(tmp_path: Path) -> None:
+    server = build_review_server(tmp_path / "data", port=0)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host = str(server.server_address[0])
+        port = int(server.server_address[1])
+        with urlopen(f"http://{host}:{port}/api/health", timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+    assert payload == {"phase": 10, "status": "ok"}
 
 
 def _create_render(tmp_path: Path) -> str:

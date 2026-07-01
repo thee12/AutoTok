@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from functools import partial
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Final
@@ -56,9 +55,11 @@ def build_review_server(
     port: int = DEFAULT_REVIEW_PORT,
 ) -> ThreadingHTTPServer:
     """Build a local review dashboard server."""
-    handler = partial(ReviewRequestHandler)
-    handler.api = ReviewApi(data_dir)  # type: ignore[attr-defined]
-    return ThreadingHTTPServer((host, port), handler)
+
+    class BoundReviewRequestHandler(ReviewRequestHandler):
+        api = ReviewApi(data_dir)
+
+    return ThreadingHTTPServer((host, port), BoundReviewRequestHandler)
 
 
 def serve_review_dashboard(
