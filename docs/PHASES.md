@@ -427,6 +427,37 @@ Excluded:
 
 Exit gate: the local deployment can be installed, monitored, backed up, restored, and upgraded using documented procedures.
 
-## Later Phases
+## Phase 13 - Optional Analytics Feedback and Advanced Templates
 
-Phase 13: optional analytics and advanced templates.
+Goal: improve the workflow using measured local results rather than assumptions.
+
+Status: complete.
+
+In scope:
+
+- local analytics template variants for hooks, outros, caption templates,
+  hashtags, subtitle-theme labels, and metadata
+- local experiment definitions with hypotheses, primary metrics, variant IDs,
+  statuses, and notes
+- assignments linking completed render packages to experiment template variants
+- manually supplied or officially exported performance records
+- local reports with totals, averages, experiment summaries, leading variants,
+  and recommendations
+- human-reviewed recommendations that never modify content or publishing
+  automatically
+- CLI commands for template variants, experiments, metric import, and reports
+- tests for analytics models, storage, reporting, assignment safety, metric
+  parsing, and CLI behavior
+- documentation for commands, runtime data, and scope boundaries
+
+Excluded:
+
+- fake engagement or engagement manipulation
+- automated comments, messages, follows, likes, or bot interactions
+- scraping analytics dashboards or bypassing platform controls
+- automatic analytics-provider API integration
+- automatic content, template, review, publication, or scheduling changes based
+  on metrics
+- guaranteed-growth claims
+
+Exit gate: changes can be evaluated against recorded outcomes without compromising review, authorization, or platform compliance.

@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 12, with persistent local jobs, a browser-based local review dashboard, an official TikTok publishing adapter, and local operations tooling.
+currently complete through Phase 13, with persistent local jobs, a browser-based local review dashboard, an official TikTok publishing adapter, local operations tooling, and local analytics feedback.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. Phase 12 adds health checks, metrics, backup/restore, retention, audits, profiling, JSON logs, and an operations runbook. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. Phase 12 adds health checks, metrics, backup/restore, retention, audits, profiling, JSON logs, and an operations runbook. Phase 13 adds local analytics records, experiment definitions, template variants, reports, and human-reviewed recommendations. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -41,6 +41,16 @@ Run local operational checks:
 autotok ops health
 autotok ops metrics --json
 autotok ops audit
+```
+
+Track local analytics feedback and experiments:
+
+```bash
+autotok analytics template create --name "Fast hook" --hook "Wait until you hear this" --hashtag storytime
+autotok analytics experiment create --name "Hook test" --hypothesis "A direct hook improves completion" --primary-metric completions --variant-id template_a --variant-id template_b
+autotok analytics experiment assign experiment_0123456789abcdef template_0123456789abcdef render_0123456789abcdef
+autotok analytics import render_0123456789abcdef --provider tiktok --source manual --metric views=1200 --metric completions=430
+autotok analytics report --json
 ```
 
 Import manually supplied story text:
@@ -392,7 +402,7 @@ Phase 6 completes the first local MVP. The output is saved for human review.
 Phase 7 adds approved public source discovery and import. Phase 8 adds local
 scoring, duplicate detection, review flags, and content gates before discovered
 stories enter transformation. Phase 9 adds persistent local jobs and resumable
-story-to-render orchestration. Phase 10 adds a localhost review dashboard. Phase 11 adds approval-gated official publishing support for TikTok. AutoTok still does not automate engagement or unsupported scheduling.
+story-to-render orchestration. Phase 10 adds a localhost review dashboard. Phase 11 adds approval-gated official publishing support for TikTok. Phase 12 adds local operations tooling. Phase 13 adds local analytics feedback, experiments, and reusable template variants. AutoTok still does not automate engagement, unsupported scheduling, or analytics collection from providers.
 
 ## Persistent Jobs
 
@@ -441,12 +451,22 @@ data/publications/<render_id>/tiktok/publication.json
 
 TikTok publishing uses the official Content Posting API. Dry-run is the default and records a redacted request plan. Real publishing requires an approved review package plus `--execute --confirm` and configured TikTok credentials. Scheduling is rejected for TikTok because no official scheduling field was verified for Direct Post in Phase 11. See `docs/PUBLISHING.md` for the provider verification notes and token lifecycle commands.
 
+## Analytics Artifacts
+
+Phase 13 stores local analytics feedback under:
+
+```text
+data/analytics/
+```
+
+Analytics records include template variants, experiment definitions, render assignments, and manually supplied or officially exported performance records. Reports summarize recorded outcomes and produce human-reviewed recommendations only. Phase 13 does not scrape analytics dashboards, manipulate engagement, guarantee growth, or automatically change content or publishing behavior. See `docs/ANALYTICS.md`.
+
 ## Operations
 
 Phase 12 keeps deployment local-first: install the Python package into an isolated environment on the machine that owns the media and data directory. It adds:
 
 - `autotok ops health` for local health checks
-- `autotok ops metrics` for artifact, job, review, and publication counts
+- `autotok ops metrics` for artifact, job, review, publication, and analytics counts
 - `autotok ops backup` and `autotok ops restore` for ZIP-based data recovery
 - `autotok ops retention` for dry-run-first cleanup of transient cache/log/tmp files
 - `autotok ops audit` for dependency inventory and high-confidence secret scanning
@@ -462,3 +482,4 @@ See `docs/OPERATIONS.md` for install, monitoring, backup, restore, retention, au
 - `docs/STATUS.md`
 - `docs/PUBLISHING.md`
 - `docs/OPERATIONS.md`
+- `docs/ANALYTICS.md`

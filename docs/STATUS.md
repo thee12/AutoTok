@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 12 - Production hardening and deployment (complete).
+Phase 13 - Optional analytics feedback, experiments, and advanced templates (complete).
 
 ## Implemented
 
@@ -119,13 +119,22 @@ Phase 12 - Production hardening and deployment (complete).
 - publication audit trail and CLI commands through `autotok publish ...`
 - structured JSON log format via `AUTOTOK_LOG_FORMAT=json`
 - local operational health checks through `autotok ops health`
-- artifact, job, review, and publication metrics through `autotok ops metrics`
+- artifact, job, review, publication, and analytics metrics through `autotok ops metrics`
 - ZIP data-directory backups through `autotok ops backup`
 - safe backup inspection and empty-target restore through `autotok ops restore`
 - dry-run-first transient cache/log/tmp retention through `autotok ops retention`
 - dependency inventory, ignore-pattern check, and high-confidence secret scan through `autotok ops audit`
 - lightweight metrics snapshot profiling through `autotok ops profile`
 - operations runbook covering install, monitoring, backup, restore, retention, audit, profiling, recovery, and upgrade
+- local analytics template variants for hooks, outros, captions, hashtags, subtitle-theme labels, and metadata
+- local experiment definitions with hypotheses, primary metrics, variant IDs, statuses, and notes
+- render-to-experiment assignment records for completed render packages
+- manual and official-export performance record import for completed renders
+- analytics artifacts under `data/analytics/`
+- analytics reports with metric totals, averages, experiment summaries, leading variants, and recommendations
+- human-reviewed recommendation output that does not change content or publishing automatically
+- analytics CLI commands through `autotok analytics template`, `autotok analytics experiment`, `autotok analytics import`, and `autotok analytics report`
+- analytics documentation covering scope, exclusions, commands, runtime data, and recommendation boundaries
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -133,8 +142,8 @@ Phase 12 - Production hardening and deployment (complete).
 
 ## Not Implemented
 
-The repository does not schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. Phase 12 operations are local-first and do not introduce a hosted deployment service. AutoTok also does not call real paid/cloud TTS or transcription providers.
+The repository does not schedule posts, run distributed workers, execute jobs in parallel, scrape analytics dashboards, automate engagement, guarantee growth, or automatically change content from metric results. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. Phase 12 operations are local-first and do not introduce a hosted deployment service. Phase 13 analytics ingestion is limited to manually supplied or officially exported records. AutoTok also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 12 Completion Evidence
+## Phase 13 Completion Evidence
 
-Phase 12 adds JSON log formatting, local operations commands, health checks, metrics, backup/restore, retention, dependency/secret audit checks, lightweight profiling, and an operations runbook. Focused tests cover health/metrics, backup/restore, unsafe archive rejection, retention safety, audit findings, profiling, ops CLI smoke paths, and JSON log config. Full verification passed with 109 tests plus ruff, format, and mypy checks.
+Phase 13 adds local analytics template variants, experiments, render assignments, performance records, reports, and human-reviewed recommendations. Focused tests cover template creation, experiment creation, render assignment idempotency and mismatch rejection, metric import, report recommendations, metric parsing, and CLI smoke paths. Full verification passed with ruff, format, mypy, and pytest checks.

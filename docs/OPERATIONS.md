@@ -50,8 +50,7 @@ Collect local metrics:
 autotok ops metrics --json
 ```
 
-Metrics include artifact file counts and byte totals, job status counts, review
-status counts, and publication status counts.
+Metrics include artifact file counts and byte totals for story, media, render, review, publication, analytics, and cache directories, plus job status counts, review status counts, and publication status counts.
 
 ## Backup
 
@@ -97,9 +96,7 @@ autotok ops retention --older-than-days 30 --apply
 ```
 
 The retention policy only targets transient `cache/`, `logs/`, and `tmp/` files
-under the data directory. Durable story, media, render, review, publication, and
-job artifacts are retained until the operator explicitly deletes them or uses a
-future purpose-built deletion command.
+under the data directory. Durable story, media, render, review, publication, analytics, and job artifacts are retained until the operator explicitly deletes them or uses a future purpose-built deletion command.
 
 ## Audit
 

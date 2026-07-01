@@ -10,6 +10,16 @@ from pathlib import Path
 from typing import Any
 
 from autotok import __version__
+from autotok.analytics import (
+    assign_experiment_variant,
+    build_analytics_report,
+    create_experiment,
+    create_template_variant,
+    import_performance_record,
+    parse_metric_pairs,
+)
+from autotok.analytics_models import AnalyticsSource
+from autotok.analytics_storage import AnalyticsStore
 from autotok.audio_storage import AudioStore, StoredAudio
 from autotok.config import AppConfig, ConfigError
 from autotok.content_gate_models import ContentGateConfig, ContentGateDecision
@@ -126,6 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_review_parser(subcommands)
     _add_publish_parser(subcommands)
     _add_ops_parser(subcommands)
+    _add_analytics_parser(subcommands)
     return parser
 
 
@@ -881,6 +892,100 @@ def _add_publish_parser(subcommands: argparse._SubParsersAction[argparse.Argumen
     refresh.set_defaults(handler=run_publish_token_refresh)
 
 
+def _add_analytics_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    analytics = subcommands.add_parser(
+        "analytics",
+        help="Record local performance analytics, experiments, templates, and reports.",
+    )
+    analytics_subcommands = analytics.add_subparsers(dest="analytics_command", required=True)
+
+    template = analytics_subcommands.add_parser("template", help="Manage template variants.")
+    template_subcommands = template.add_subparsers(dest="template_command", required=True)
+
+    template_create = template_subcommands.add_parser(
+        "create",
+        help="Create a reusable content template variant.",
+    )
+    template_create.add_argument("--name", required=True)
+    template_create.add_argument("--description", default="")
+    template_create.add_argument("--hook", default="")
+    template_create.add_argument("--outro", default="")
+    template_create.add_argument("--caption-template", default="")
+    template_create.add_argument("--hashtag", action="append", default=[])
+    template_create.add_argument("--subtitle-theme", default="")
+    template_create.add_argument("--json", action="store_true")
+    template_create.set_defaults(handler=run_analytics_template_create)
+
+    template_list = template_subcommands.add_parser("list", help="List template variants.")
+    template_list.add_argument("--json", action="store_true")
+    template_list.set_defaults(handler=run_analytics_template_list)
+
+    template_inspect = template_subcommands.add_parser(
+        "inspect",
+        help="Inspect a template variant.",
+    )
+    template_inspect.add_argument("template_id")
+    template_inspect.add_argument("--json", action="store_true")
+    template_inspect.set_defaults(handler=run_analytics_template_inspect)
+
+    experiment = analytics_subcommands.add_parser("experiment", help="Manage experiments.")
+    experiment_subcommands = experiment.add_subparsers(dest="experiment_command", required=True)
+
+    experiment_create = experiment_subcommands.add_parser(
+        "create",
+        help="Create a local experiment definition.",
+    )
+    experiment_create.add_argument("--name", required=True)
+    experiment_create.add_argument("--hypothesis", required=True)
+    experiment_create.add_argument("--primary-metric", required=True)
+    experiment_create.add_argument("--variant-id", action="append", required=True)
+    experiment_create.add_argument("--notes", default="")
+    experiment_create.add_argument("--json", action="store_true")
+    experiment_create.set_defaults(handler=run_analytics_experiment_create)
+
+    experiment_list = experiment_subcommands.add_parser("list", help="List experiments.")
+    experiment_list.add_argument("--json", action="store_true")
+    experiment_list.set_defaults(handler=run_analytics_experiment_list)
+
+    experiment_assign = experiment_subcommands.add_parser(
+        "assign",
+        help="Assign a render to an experiment template variant.",
+    )
+    experiment_assign.add_argument("experiment_id")
+    experiment_assign.add_argument("template_id")
+    experiment_assign.add_argument("render_id")
+    experiment_assign.add_argument("--notes", default="")
+    experiment_assign.add_argument("--json", action="store_true")
+    experiment_assign.set_defaults(handler=run_analytics_experiment_assign)
+
+    performance_import = analytics_subcommands.add_parser(
+        "import",
+        help="Import manual or officially exported performance metrics for a render.",
+    )
+    performance_import.add_argument("render_id")
+    performance_import.add_argument("--provider", default="manual")
+    performance_import.add_argument(
+        "--source",
+        choices=[item.value for item in AnalyticsSource],
+        default=AnalyticsSource.MANUAL.value,
+    )
+    performance_import.add_argument("--metric", action="append", required=True)
+    performance_import.add_argument("--captured-at")
+    performance_import.add_argument("--experiment-id")
+    performance_import.add_argument("--template-id")
+    performance_import.add_argument("--publication-id")
+    performance_import.add_argument("--notes", default="")
+    performance_import.add_argument("--json", action="store_true")
+    performance_import.set_defaults(handler=run_analytics_import)
+
+    report = analytics_subcommands.add_parser(
+        "report",
+        help="Build a local analytics report and recommendations.",
+    )
+    report.add_argument("--json", action="store_true")
+    report.set_defaults(handler=run_analytics_report)
+
+
 def _add_ops_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     ops = subcommands.add_parser(
         "ops",
@@ -943,6 +1048,163 @@ def _add_ops_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentPar
     profile.add_argument("--iterations", type=int, default=3)
     profile.add_argument("--json", action="store_true", help="Print profile result as JSON.")
     profile.set_defaults(handler=run_ops_profile)
+
+
+def run_analytics_template_create(args: argparse.Namespace) -> int:
+    """Create a reusable analytics template variant."""
+    config = _load_config(args)
+    template = create_template_variant(
+        AnalyticsStore(config.data_dir),
+        name=args.name,
+        description=args.description,
+        hook=args.hook,
+        outro=args.outro,
+        caption_template=args.caption_template,
+        hashtags=tuple(args.hashtag),
+        subtitle_theme=args.subtitle_theme,
+    )
+    payload = template.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Template variant: {template.template_id}")
+        print(f"Name: {template.name}")
+        print(f"Hashtags: {', '.join(template.hashtags) or '(none)'}")
+    return 0
+
+
+def run_analytics_template_list(args: argparse.Namespace) -> int:
+    """List analytics template variants."""
+    config = _load_config(args)
+    templates = AnalyticsStore(config.data_dir).list_templates()
+    payload = {"templates": [template.to_dict() for template in templates]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        if not templates:
+            print("No template variants found.")
+        for template in templates:
+            print(f"{template.template_id} {template.name}")
+    return 0
+
+
+def run_analytics_template_inspect(args: argparse.Namespace) -> int:
+    """Inspect one analytics template variant."""
+    config = _load_config(args)
+    template = AnalyticsStore(config.data_dir).load_template(args.template_id)
+    payload = template.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Template variant: {template.template_id}")
+        print(f"Name: {template.name}")
+        print(f"Description: {template.description or '(none)'}")
+        print(f"Subtitle theme: {template.subtitle_theme or '(none)'}")
+    return 0
+
+
+def run_analytics_experiment_create(args: argparse.Namespace) -> int:
+    """Create a local analytics experiment."""
+    config = _load_config(args)
+    experiment = create_experiment(
+        AnalyticsStore(config.data_dir),
+        name=args.name,
+        hypothesis=args.hypothesis,
+        primary_metric=args.primary_metric,
+        variant_ids=tuple(args.variant_id),
+        notes=args.notes,
+    )
+    payload = experiment.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Experiment: {experiment.experiment_id}")
+        print(f"Name: {experiment.name}")
+        print(f"Primary metric: {experiment.primary_metric}")
+    return 0
+
+
+def run_analytics_experiment_list(args: argparse.Namespace) -> int:
+    """List local analytics experiments."""
+    config = _load_config(args)
+    experiments = AnalyticsStore(config.data_dir).list_experiments()
+    payload = {"experiments": [experiment.to_dict() for experiment in experiments]}
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        if not experiments:
+            print("No experiments found.")
+        for experiment in experiments:
+            print(
+                f"{experiment.experiment_id} {experiment.status.value} "
+                f"metric={experiment.primary_metric}"
+            )
+    return 0
+
+
+def run_analytics_experiment_assign(args: argparse.Namespace) -> int:
+    """Assign a render to an experiment template variant."""
+    config = _load_config(args)
+    assignment = assign_experiment_variant(
+        AnalyticsStore(config.data_dir),
+        data_dir=config.data_dir,
+        experiment_id=args.experiment_id,
+        template_id=args.template_id,
+        render_id=args.render_id,
+        notes=args.notes,
+    )
+    payload = assignment.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Experiment assignment: {assignment.assignment_id}")
+        print(f"Render: {assignment.render_id}")
+        print(f"Template: {assignment.template_id}")
+    return 0
+
+
+def run_analytics_import(args: argparse.Namespace) -> int:
+    """Import render performance metrics."""
+    config = _load_config(args)
+    record = import_performance_record(
+        AnalyticsStore(config.data_dir),
+        data_dir=config.data_dir,
+        render_id=args.render_id,
+        provider=args.provider,
+        metrics=parse_metric_pairs(tuple(args.metric)),
+        source=AnalyticsSource(args.source),
+        captured_at=args.captured_at,
+        experiment_id=args.experiment_id,
+        template_id=args.template_id,
+        publication_id=args.publication_id,
+        notes=args.notes,
+    )
+    payload = record.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print(f"Performance record: {record.performance_id}")
+        print(f"Render: {record.render_id}")
+        print(f"Metrics: {', '.join(f'{key}={value:g}' for key, value in record.metrics.items())}")
+    return 0
+
+
+def run_analytics_report(args: argparse.Namespace) -> int:
+    """Build a local analytics report."""
+    config = _load_config(args)
+    report = build_analytics_report(AnalyticsStore(config.data_dir))
+    payload = report.to_dict()
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        print("Analytics report")
+        print(f"Performance records: {report.performance_count}")
+        print(f"Experiments: {report.experiment_count}")
+        print(f"Templates: {report.template_count}")
+        print(f"Recommendations: {len(report.recommendations)}")
+        for recommendation in report.recommendations:
+            print(f"{recommendation.confidence.value}: {recommendation.title}")
+    return 0
 
 
 def run_ops_health(args: argparse.Namespace) -> int:

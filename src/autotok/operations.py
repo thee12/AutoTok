@@ -37,6 +37,7 @@ ARTIFACT_DIRS = (
     "jobs",
     "reviews",
     "publications",
+    "analytics",
     "cache",
 )
 SECRET_FILE_EXCLUDES = {
