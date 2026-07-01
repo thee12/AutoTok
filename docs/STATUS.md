@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 10 - Local review dashboard (complete).
+Phase 11 - Official publishing and scheduling (complete).
 
 ## Implemented
 
@@ -107,6 +107,16 @@ Phase 10 - Local review dashboard (complete).
 - local rendered-video preview through the dashboard media route
 - review dashboard serving through `autotok review serve`
 - review listing and inspection through `autotok review list` and `autotok review inspect`
+- TikTok Content Posting API capability verification from official documentation
+- publication domain models, adapter interface, and filesystem publication records under `data/publications/`
+- approval-gated TikTok dry runs and explicit `--execute --confirm` real publish path
+- official TikTok Direct Post request building for file upload and pull-from-URL modes
+- upload initialization, local file upload, provider status fetch, status mapping, and retryable failure surface
+- duplicate prevention for submitted, processing, and published render/provider pairs
+- OAuth authorization-code and refresh-token request helpers with redacted output
+- secure secret configuration through environment variables only
+- scheduling rejection for TikTok Direct Post because official support was not verified
+- publication audit trail and CLI commands through `autotok publish ...`
 - pytest, ruff, and mypy configuration
 - README, architecture documentation, and phase roadmap
 - local runtime-data ignore rules
@@ -114,8 +124,8 @@ Phase 10 - Local review dashboard (complete).
 
 ## Not Implemented
 
-The repository does not yet publish content, schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. It also does not call real paid/cloud TTS or transcription providers.
+The repository does not schedule posts, run distributed workers, execute jobs in parallel, ingest analytics, or automate engagement. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. It also does not call real paid/cloud TTS or transcription providers.
 
-## Phase 10 Completion Evidence
+## Phase 11 Completion Evidence
 
-Phase 10 adds review package models and storage, a local review API, localhost dashboard server, static browser UI, video preview route, CLI review commands, editable script and metadata snapshots, approval/rejection states, regeneration requests, and audit history. Focused tests cover review state creation and updates, approval, rejection, regeneration request validation, API routes, route errors, and media preview serving. Full verification passed with 92 tests.
+Phase 11 adds a TikTok official publishing adapter, publication storage, dry-run records, approval gating, duplicate prevention, OAuth token lifecycle helpers, status fetches, scheduling rejection for unsupported TikTok scheduling, and redacted audit records. Focused tests cover approval enforcement, dry runs, duplicate prevention, pull-from-URL request plans, token redaction, status mapping, CLI dry runs, and config validation. Full verification passed with 101 tests plus ruff, format, and mypy checks.

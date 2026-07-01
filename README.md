@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 10, with persistent local jobs and a browser-based local review dashboard.
+currently complete through Phase 11, with persistent local jobs, a browser-based local review dashboard, and an official TikTok publishing adapter.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. No publishing behavior exists yet. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -156,6 +156,19 @@ Inspect a completed render package:
 autotok render inspect render_0123456789abcdef
 ```
 
+Prepare a TikTok publishing dry run for an approved review package:
+
+```bash
+autotok publish tiktok render_0123456789abcdef
+```
+
+Execute a real official TikTok Direct Post publish only after approval and explicit confirmation:
+
+```bash
+autotok publish tiktok render_0123456789abcdef --execute --confirm
+autotok publish status render_0123456789abcdef --fetch
+```
+
 Use a specific local artifact workspace:
 
 ```bash
@@ -192,8 +205,13 @@ Current environment variables:
 - `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional bearer token for live Reddit Data API discovery
 - `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
 - `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
+- `AUTOTOK_TIKTOK_CLIENT_KEY`, optional TikTok OAuth client key
+- `AUTOTOK_TIKTOK_CLIENT_SECRET`, optional TikTok OAuth client secret
+- `AUTOTOK_TIKTOK_ACCESS_TOKEN`, optional TikTok user access token for real publish/status calls
+- `AUTOTOK_TIKTOK_REFRESH_TOKEN`, optional TikTok refresh token for token refresh
+- `AUTOTOK_TIKTOK_TIMEOUT_SECONDS`, default `30`
 
-The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command. Reddit tokens are never printed by the CLI; `autotok doctor` reports only whether one is configured.
+The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command. Reddit and TikTok secrets are never printed by the CLI; `autotok doctor` reports only whether each secret is configured.
 
 ## Story Artifacts
 
@@ -352,8 +370,7 @@ Phase 6 completes the first local MVP. The output is saved for human review.
 Phase 7 adds approved public source discovery and import. Phase 8 adds local
 scoring, duplicate detection, review flags, and content gates before discovered
 stories enter transformation. Phase 9 adds persistent local jobs and resumable
-story-to-render orchestration. AutoTok still does not provide a review dashboard,
-publish, schedule, or automate engagement.
+story-to-render orchestration. Phase 10 adds a localhost review dashboard. Phase 11 adds approval-gated official publishing support for TikTok. AutoTok still does not automate engagement or unsupported scheduling.
 
 ## Persistent Jobs
 
@@ -392,8 +409,19 @@ autotok review serve
 Then open `http://127.0.0.1:8765/`. The review dashboard is local-only and does
 not publish, schedule, upload, or contact platform APIs.
 
+## Publication Artifacts
+
+Phase 11 stores publication records under:
+
+```text
+data/publications/<render_id>/tiktok/publication.json
+```
+
+TikTok publishing uses the official Content Posting API. Dry-run is the default and records a redacted request plan. Real publishing requires an approved review package plus `--execute --confirm` and configured TikTok credentials. Scheduling is rejected for TikTok because no official scheduling field was verified for Direct Post in Phase 11. See `docs/PUBLISHING.md` for the provider verification notes and token lifecycle commands.
+
 ## Documentation
 
 - `docs/ARCHITECTURE.md`
 - `docs/PHASES.md`
 - `docs/STATUS.md`
+- `docs/PUBLISHING.md`

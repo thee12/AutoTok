@@ -1,6 +1,6 @@
 # AutoTok Architecture
 
-AutoTok is being built as a local-first modular monolith. Phase 10 adds a localhost review dashboard while keeping rendering, review state, and approvals local-first; no publishing behavior exists yet.
+AutoTok is being built as a local-first modular monolith. Phase 11 adds official TikTok publishing while keeping rendering, review state, approvals, and publication audit records local-first.
 
 ## Current Shape
 
@@ -38,6 +38,9 @@ AutoTok is being built as a local-first modular monolith. Phase 10 adds a localh
 - `autotok review serve` starts the local browser dashboard.
 - `autotok review list` and `autotok review inspect` expose review state without
   opening a browser.
+- `autotok publish tiktok` prepares a dry run or explicitly executes an approved TikTok Direct Post publish.
+- `autotok publish status` inspects local publication state or fetches official TikTok status.
+- `autotok publish token exchange` and `autotok publish token refresh` build or execute redacted OAuth token lifecycle requests.
 - `src/autotok/config.py` contains the initial configuration model.
 - `src/autotok/models.py` contains canonical story/source dataclasses.
 - `src/autotok/content_gate_models.py` contains scoring, duplicate, warning, decision, and override dataclasses.
@@ -50,6 +53,9 @@ AutoTok is being built as a local-first modular monolith. Phase 10 adds a localh
 - `src/autotok/review_models.py` contains review package, editable metadata,
   regeneration request, approval state, and audit event dataclasses.
 - `src/autotok/review_storage.py` persists review packages under `data/reviews/`.
+- `src/autotok/publishing_models.py` contains publication records, TikTok capability verification, options, statuses, and audit events.
+- `src/autotok/publishing_storage.py` persists publication records under `data/publications/`.
+- `src/autotok/publishing.py` contains the official TikTok Content Posting API adapter, OAuth helpers, dry-run workflow, status fetch, and duplicate-prevention logic.
 - `src/autotok/review_api.py` routes local dashboard API requests and serves the
   static review UI.
 - `src/autotok/review_server.py` adapts the review API to a localhost HTTP
@@ -114,6 +120,11 @@ safe built-in defaults:
 7. `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional live Reddit bearer token
 8. `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
 9. `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
+10. `AUTOTOK_TIKTOK_CLIENT_KEY`, optional TikTok OAuth client key
+11. `AUTOTOK_TIKTOK_CLIENT_SECRET`, optional TikTok OAuth client secret
+12. `AUTOTOK_TIKTOK_ACCESS_TOKEN`, optional TikTok user access token
+13. `AUTOTOK_TIKTOK_REFRESH_TOKEN`, optional TikTok refresh token
+14. `AUTOTOK_TIKTOK_TIMEOUT_SECONDS`, default `30`
 
 Secrets must remain in environment variables or local ignored files. Phase 7 live Reddit discovery requires an OAuth bearer token supplied by environment; fixture discovery and all automated tests remain credential-free. Rendering still only reads approved local artifacts and uses local FFmpeg/FFprobe executables.
 
@@ -127,7 +138,8 @@ artifacts under `data/subtitles/<subtitle_id>/`. Phase 5 writes background-media
 catalog records under `data/media/<media_id>/` and clip-preparation records under
 `data/clips/<clip_id>/`. Phase 6 writes render packages under
 `data/renders/<render_id>/`. Phase 10 writes review packages under
-`data/reviews/<render_id>/`.
+`data/reviews/<render_id>/`. Phase 11 writes publication records under
+`data/publications/<render_id>/tiktok/`.
 
 A stored story currently contains:
 
@@ -202,4 +214,5 @@ The following concerns are intentionally deferred to later phases:
 
 - real paid or cloud TTS providers;
 - transcription providers;
-- official publishing adapters.
+- unsupported post scheduling;
+- analytics ingestion or engagement automation.

@@ -15,6 +15,7 @@ DEFAULT_TTS_PROVIDER = "local_wav"
 DEFAULT_TTS_TIMEOUT_SECONDS = 30
 DEFAULT_REDDIT_USER_AGENT = "AutoTok/0.1 local-source-ingestion"
 DEFAULT_REDDIT_TIMEOUT_SECONDS = 20
+DEFAULT_TIKTOK_TIMEOUT_SECONDS = 30
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
 VALID_TTS_PROVIDERS = {"local_wav"}
 
@@ -39,6 +40,11 @@ class AppConfig:
     reddit_oauth_token: str | None = None
     reddit_user_agent: str = DEFAULT_REDDIT_USER_AGENT
     reddit_timeout_seconds: int = DEFAULT_REDDIT_TIMEOUT_SECONDS
+    tiktok_client_key: str | None = None
+    tiktok_client_secret: str | None = None
+    tiktok_access_token: str | None = None
+    tiktok_refresh_token: str | None = None
+    tiktok_timeout_seconds: int = DEFAULT_TIKTOK_TIMEOUT_SECONDS
 
     @classmethod
     def from_environment(cls, environ: dict[str, str] | None = None) -> AppConfig:
@@ -66,6 +72,15 @@ class AppConfig:
                 source.get("AUTOTOK_REDDIT_TIMEOUT_SECONDS"),
                 default=DEFAULT_REDDIT_TIMEOUT_SECONDS,
                 name="AUTOTOK_REDDIT_TIMEOUT_SECONDS",
+            ),
+            tiktok_client_key=_optional_secret(source.get("AUTOTOK_TIKTOK_CLIENT_KEY")),
+            tiktok_client_secret=_optional_secret(source.get("AUTOTOK_TIKTOK_CLIENT_SECRET")),
+            tiktok_access_token=_optional_secret(source.get("AUTOTOK_TIKTOK_ACCESS_TOKEN")),
+            tiktok_refresh_token=_optional_secret(source.get("AUTOTOK_TIKTOK_REFRESH_TOKEN")),
+            tiktok_timeout_seconds=_parse_int(
+                source.get("AUTOTOK_TIKTOK_TIMEOUT_SECONDS"),
+                default=DEFAULT_TIKTOK_TIMEOUT_SECONDS,
+                name="AUTOTOK_TIKTOK_TIMEOUT_SECONDS",
             ),
         )
         config.validate()
@@ -108,6 +123,15 @@ class AppConfig:
             raise ConfigError("AUTOTOK_REDDIT_USER_AGENT must not be empty.")
         if self.reddit_timeout_seconds <= 0:
             raise ConfigError("AUTOTOK_REDDIT_TIMEOUT_SECONDS must be greater than zero.")
+        if self.tiktok_timeout_seconds <= 0:
+            raise ConfigError("AUTOTOK_TIKTOK_TIMEOUT_SECONDS must be greater than zero.")
+
+
+def _optional_secret(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
 
 
 def _parse_int(value: str | None, *, default: int, name: str) -> int:
