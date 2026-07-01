@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>InTheLoop by AutoTok</title>
+  <meta name="description" content="InTheLoop by AutoTok is a local-first workflow for creating, reviewing, and publishing approved short-form videos through official platform integrations.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html">InTheLoop</a>
+    <nav aria-label="Main navigation">
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Local-first video workflow</p>
+        <h1>InTheLoop helps operators create, review, and publish approved short-form videos.</h1>
+        <p class="lead">InTheLoop is powered by AutoTok, a desktop and command-line workflow for turning approved source text and authorized media into reviewable vertical video packages.</p>
+      </div>
+    </section>
+
+    <section class="section-grid" aria-label="Core workflow">
+      <article>
+        <h2>Create Locally</h2>
+        <p>Import approved story text, narration audio, subtitles, and authorized background media into a local workspace.</p>
+      </article>
+      <article>
+        <h2>Review First</h2>
+        <p>Preview the generated video package locally and approve it before any publishing command can run.</p>
+      </article>
+      <article>
+        <h2>Publish Explicitly</h2>
+        <p>Use official platform APIs only after human approval and an explicit publish confirmation.</p>
+      </article>
+    </section>
+
+    <section class="content-band">
+      <div>
+        <h2>TikTok Integration</h2>
+        <p>InTheLoop uses Login Kit to authorize the operator's TikTok account and TikTok's Content Posting API to publish approved videos through Direct Post. The workflow is designed for the account owner to review and explicitly confirm publication.</p>
+        <ul>
+          <li>Scopes used for TikTok: <code>user.info.basic</code>, <code>video.upload</code>, and <code>video.publish</code>.</li>
+          <li>Generated content is stored locally unless the operator chooses to publish.</li>
+          <li>The app does not automate comments, direct messages, follows, likes, or other engagement behavior.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="content-band subtle">
+      <div>
+        <h2>Operator Responsibilities</h2>
+        <p>Operators are responsible for using source text, audio, and media they own or are authorized to use. InTheLoop does not provide legal advice, guarantee reach, or determine whether specific content is eligible for monetization or platform distribution.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>&copy; 2026 InTheLoop by AutoTok. All rights reserved.</p>
+    <p><a href="privacy.html">Privacy Policy</a> <span aria-hidden="true">/</span> <a href="terms.html">Terms of Service</a></p>
+  </footer>
+</body>
+</html>
