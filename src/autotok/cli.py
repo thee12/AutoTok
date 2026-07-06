@@ -59,19 +59,8 @@ from autotok.operations import (
     plan_retention,
     profile_operations,
 )
-from autotok.publishing import (
-    TikTokContentPostingAdapter,
-    build_tiktok_token_exchange_request,
-    build_tiktok_token_refresh_request,
-    fetch_tiktok_publication_status,
-    prepare_tiktok_publication,
-    redact_mapping,
-)
-from autotok.publishing_models import (
-    PublishingProvider,
-    PublishSourceType,
-    TikTokDirectPostOptions,
-)
+from autotok.publishing import prepare_tiktok_publication, record_manual_tiktok_publish
+from autotok.publishing_models import PublishingProvider, TikTokManualUploadOptions
 from autotok.publishing_storage import PublicationStore, StoredPublication
 from autotok.render import build_render_spec, render_video_package
 from autotok.render_storage import RenderStore, StoredRender
@@ -825,71 +814,39 @@ def _add_review_parser(subcommands: argparse._SubParsersAction[argparse.Argument
 def _add_publish_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     publish = subcommands.add_parser(
         "publish",
-        help="Prepare and inspect official publication attempts.",
+        help="Prepare and inspect local manual upload packages.",
     )
     publish_subcommands = publish.add_subparsers(dest="publish_command", required=True)
 
     tiktok = publish_subcommands.add_parser(
         "tiktok",
-        help="Prepare or execute an official TikTok Content Posting API publish.",
+        help="Prepare a local TikTok manual upload package.",
     )
     tiktok.add_argument("render_id", help="Approved render package ID to publish.")
     tiktok.add_argument("--json", action="store_true", help="Print publication result as JSON.")
-    tiktok.add_argument("--execute", action="store_true", help="Contact TikTok instead of dry-run.")
-    tiktok.add_argument("--confirm", action="store_true", help="Required with --execute.")
     tiktok.add_argument("--privacy-level", default="SELF_ONLY")
     tiktok.add_argument("--disable-duet", action="store_true")
     tiktok.add_argument("--disable-comment", action="store_true")
     tiktok.add_argument("--disable-stitch", action="store_true")
     tiktok.add_argument("--cover-ms", type=int, default=0)
-    tiktok.add_argument(
-        "--source",
-        choices=["file_upload", "pull_from_url"],
-        default="file_upload",
-        help="Official TikTok Direct Post source mode.",
-    )
-    tiktok.add_argument("--video-url", help="Public video URL for --source pull_from_url.")
-    tiktok.add_argument(
-        "--publish-at",
-        help=(
-            "Requested schedule time; rejected for TikTok because official "
-            "scheduling is unsupported."
-        ),
-    )
     tiktok.set_defaults(handler=run_publish_tiktok)
 
     status = publish_subcommands.add_parser(
         "status",
-        help="Inspect local publication state or fetch official provider status.",
+        help="Inspect local manual upload package state.",
     )
     status.add_argument("render_id", help="Render package ID with publication state.")
     status.add_argument("--json", action="store_true", help="Print status as JSON.")
-    status.add_argument("--fetch", action="store_true", help="Fetch status from TikTok API.")
     status.set_defaults(handler=run_publish_status)
 
-    token = publish_subcommands.add_parser(
-        "token",
-        help="Build or execute TikTok OAuth token lifecycle requests.",
+    mark = publish_subcommands.add_parser(
+        "mark",
+        help="Record that a TikTok package was manually published.",
     )
-    token_subcommands = token.add_subparsers(dest="token_command", required=True)
-
-    exchange = token_subcommands.add_parser(
-        "exchange",
-        help="Build or execute a TikTok authorization-code exchange.",
-    )
-    exchange.add_argument("--code", required=True)
-    exchange.add_argument("--redirect-uri", required=True)
-    exchange.add_argument("--execute", action="store_true")
-    exchange.add_argument("--json", action="store_true")
-    exchange.set_defaults(handler=run_publish_token_exchange)
-
-    refresh = token_subcommands.add_parser(
-        "refresh",
-        help="Build or execute a TikTok refresh-token request.",
-    )
-    refresh.add_argument("--execute", action="store_true")
-    refresh.add_argument("--json", action="store_true")
-    refresh.set_defaults(handler=run_publish_token_refresh)
+    mark.add_argument("render_id", help="Render package ID with a prepared upload package.")
+    mark.add_argument("--url", help="Optional TikTok URL after manual publishing.")
+    mark.add_argument("--json", action="store_true", help="Print status as JSON.")
+    mark.set_defaults(handler=run_publish_mark)
 
 
 def _add_analytics_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -1368,28 +1325,26 @@ def run_review_inspect(args: argparse.Namespace) -> int:
 
 
 def run_publish_tiktok(args: argparse.Namespace) -> int:
-    """Dry-run or execute an official TikTok publication."""
+    """Prepare a local TikTok manual upload package."""
     config = _load_config(args)
     result = prepare_tiktok_publication(
         config=config,
         render_id=args.render_id,
         options=_tiktok_options_from_args(args),
-        execute=args.execute,
-        confirmed=args.confirm,
-        scheduled_at=args.publish_at,
     )
     payload = result.to_dict()
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
         record = result.record
-        mode = "dry run" if result.dry_run else "submitted"
-        print(f"TikTok publication {mode}: {record.publication_id}")
+        package = result.package
+        print(f"TikTok manual upload package: {record.publication_id}")
         print(f"Render: {record.render_id}")
         print(f"Status: {record.status.value}")
-        print(f"Duplicate prevented: {result.duplicate_prevented}")
-        if record.publish_id is not None:
-            print(f"TikTok publish ID: {record.publish_id}")
+        print(f"Video: {package.video_path}")
+        print(f"Caption: {package.caption_path}")
+        print(f"Metadata: {package.metadata_path}")
+        print(f"Instructions: {package.instructions_path}")
         record_path = PublicationStore(config.data_dir)._record_path(
             record.render_id,
             record.provider,
@@ -1399,16 +1354,11 @@ def run_publish_tiktok(args: argparse.Namespace) -> int:
 
 
 def run_publish_status(args: argparse.Namespace) -> int:
-    """Inspect local or official publication status."""
+    """Inspect local manual publication status."""
     config = _load_config(args)
-    if args.fetch:
-        result = fetch_tiktok_publication_status(config=config, render_id=args.render_id)
-        payload = result.to_dict()
-        record = result.record
-    else:
-        stored = PublicationStore(config.data_dir).load(args.render_id, PublishingProvider.TIKTOK)
-        payload = _stored_publication_payload(stored)
-        record = stored.record
+    stored = PublicationStore(config.data_dir).load(args.render_id, PublishingProvider.TIKTOK)
+    payload = _stored_publication_payload(stored)
+    record = stored.record
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
@@ -1416,46 +1366,30 @@ def run_publish_status(args: argparse.Namespace) -> int:
         print(f"Provider: {record.provider.value}")
         print(f"Render: {record.render_id}")
         print(f"Status: {record.status.value}")
-        print(f"Publish ID: {record.publish_id or '(none)'}")
+        if record.upload_package is not None:
+            print(f"Package: {record.upload_package.package_dir}")
+            print(f"Video: {record.upload_package.video_path}")
+            print(f"Instructions: {record.upload_package.instructions_path}")
+        if record.manual_publish_url is not None:
+            print(f"Manual TikTok URL: {record.manual_publish_url}")
         print(f"Audit events: {len(record.audit_events)}")
     return 0
 
 
-def run_publish_token_exchange(args: argparse.Namespace) -> int:
-    """Build or execute a TikTok authorization-code token exchange."""
+def run_publish_mark(args: argparse.Namespace) -> int:
+    """Record that the operator manually published a TikTok package."""
     config = _load_config(args)
-    request = build_tiktok_token_exchange_request(config, args.code, args.redirect_uri)
-    payload: Mapping[str, Any]
-    if args.execute:
-        payload = redact_mapping(
-            TikTokContentPostingAdapter(config).exchange_token(args.code, args.redirect_uri)
-        )
-    else:
-        payload = request.redacted()
+    record = record_manual_tiktok_publish(config=config, render_id=args.render_id, url=args.url)
+    stored = PublicationStore(config.data_dir).load(record.render_id, record.provider)
+    payload = _stored_publication_payload(stored)
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
     else:
-        action = "Executed" if args.execute else "Prepared"
-        print(f"{action} TikTok token exchange request.")
-        print(json.dumps(payload, indent=2, sort_keys=True))
-    return 0
-
-
-def run_publish_token_refresh(args: argparse.Namespace) -> int:
-    """Build or execute a TikTok refresh-token request."""
-    config = _load_config(args)
-    request = build_tiktok_token_refresh_request(config)
-    payload: Mapping[str, Any]
-    if args.execute:
-        payload = redact_mapping(TikTokContentPostingAdapter(config).refresh_token())
-    else:
-        payload = request.redacted()
-    if args.json:
-        print(json.dumps(payload, indent=2, sort_keys=True))
-    else:
-        action = "Executed" if args.execute else "Prepared"
-        print(f"{action} TikTok token refresh request.")
-        print(json.dumps(payload, indent=2, sort_keys=True))
+        print(f"Publication: {record.publication_id}")
+        print(f"Render: {record.render_id}")
+        print(f"Status: {record.status.value}")
+        if record.manual_publish_url is not None:
+            print(f"Manual TikTok URL: {record.manual_publish_url}")
     return 0
 
 
@@ -1781,11 +1715,7 @@ def run_doctor(args: argparse.Namespace) -> int:
         "reddit_user_agent": config.reddit_user_agent,
         "reddit_oauth_token_configured": config.reddit_oauth_token is not None,
         "reddit_timeout_seconds": config.reddit_timeout_seconds,
-        "tiktok_client_key_configured": config.tiktok_client_key is not None,
-        "tiktok_client_secret_configured": config.tiktok_client_secret is not None,
-        "tiktok_access_token_configured": config.tiktok_access_token is not None,
-        "tiktok_refresh_token_configured": config.tiktok_refresh_token is not None,
-        "tiktok_timeout_seconds": config.tiktok_timeout_seconds,
+        "tiktok_publishing_mode": "manual_upload",
         "status": "ok",
     }
     if args.json:
@@ -1802,11 +1732,7 @@ def run_doctor(args: argparse.Namespace) -> int:
         print(f"Reddit user agent: {diagnostic['reddit_user_agent']}")
         print(f"Reddit OAuth token configured: {diagnostic['reddit_oauth_token_configured']}")
         print(f"Reddit timeout seconds: {diagnostic['reddit_timeout_seconds']}")
-        print(f"TikTok client key configured: {diagnostic['tiktok_client_key_configured']}")
-        print(f"TikTok client secret configured: {diagnostic['tiktok_client_secret_configured']}")
-        print(f"TikTok access token configured: {diagnostic['tiktok_access_token_configured']}")
-        print(f"TikTok refresh token configured: {diagnostic['tiktok_refresh_token_configured']}")
-        print(f"TikTok timeout seconds: {diagnostic['tiktok_timeout_seconds']}")
+        print(f"TikTok publishing mode: {diagnostic['tiktok_publishing_mode']}")
     return 0
 
 
@@ -2225,22 +2151,15 @@ def _assert_story_transform_gate(config: AppConfig, story: StoryRecord) -> None:
         )
 
 
-def _tiktok_options_from_args(args: argparse.Namespace) -> TikTokDirectPostOptions:
+def _tiktok_options_from_args(args: argparse.Namespace) -> TikTokManualUploadOptions:
     if args.cover_ms < 0:
         raise UserInputError("--cover-ms must be greater than or equal to zero.")
-    source_type = (
-        PublishSourceType.PULL_FROM_URL
-        if args.source == "pull_from_url"
-        else PublishSourceType.FILE_UPLOAD
-    )
-    return TikTokDirectPostOptions(
+    return TikTokManualUploadOptions(
         privacy_level=args.privacy_level,
         disable_duet=args.disable_duet,
         disable_comment=args.disable_comment,
         disable_stitch=args.disable_stitch,
         cover_timestamp_ms=args.cover_ms,
-        source_type=source_type,
-        video_url=args.video_url,
     )
 
 

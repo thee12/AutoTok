@@ -107,15 +107,15 @@ Phase 13 - Optional analytics feedback, experiments, and advanced templates (com
 - local rendered-video preview through the dashboard media route
 - review dashboard serving through `autotok review serve`
 - review listing and inspection through `autotok review list` and `autotok review inspect`
-- TikTok Content Posting API capability verification from official documentation
-- publication domain models, adapter interface, and filesystem publication records under `data/publications/`
-- approval-gated TikTok dry runs and explicit `--execute --confirm` real publish path
-- official TikTok Direct Post request building for file upload and pull-from-URL modes
-- upload initialization, local file upload, provider status fetch, status mapping, and retryable failure surface
-- duplicate prevention for submitted, processing, and published render/provider pairs
-- OAuth authorization-code and refresh-token request helpers with redacted output
-- secure secret configuration through environment variables only
-- scheduling rejection for TikTok Direct Post because official support was not verified
+- TikTok manual upload package generation for approved renders
+- publication domain models and filesystem publication records under `data/publications/`
+- approval-gated TikTok manual upload packages
+- local `video.mp4`, `caption.txt`, `metadata.json`, and `instructions.md` upload handoff files
+- manual publish status recording after the operator uploads through TikTok
+- repeated package preparation under one render/provider publication record
+- no TikTok OAuth, scopes, access tokens, refresh tokens, or API calls
+- TikTok publishing requires no API secret configuration
+- scheduling remains out of scope
 - publication audit trail and CLI commands through `autotok publish ...`
 - structured JSON log format via `AUTOTOK_LOG_FORMAT=json`
 - local operational health checks through `autotok ops health`
@@ -142,7 +142,7 @@ Phase 13 - Optional analytics feedback, experiments, and advanced templates (com
 
 ## Not Implemented
 
-The repository does not schedule posts, run distributed workers, execute jobs in parallel, scrape analytics dashboards, automate engagement, guarantee growth, or automatically change content from metric results. TikTok publishing exists only through the official Content Posting API and requires explicit approval, credentials, `--execute`, and `--confirm`. Phase 12 operations are local-first and do not introduce a hosted deployment service. Phase 13 analytics ingestion is limited to manually supplied or officially exported records. AutoTok also does not call real paid/cloud TTS or transcription providers.
+The repository does not schedule posts, run distributed workers, execute jobs in parallel, scrape analytics dashboards, automate engagement, guarantee growth, or automatically change content from metric results. TikTok publishing is manual-only: AutoTok prepares local handoff files after review approval, and the operator uploads and clicks publish in TikTok. Phase 12 operations are local-first and do not introduce a hosted deployment service. Phase 13 analytics ingestion is limited to manually supplied or officially exported records. AutoTok also does not call real paid/cloud TTS or transcription providers.
 
 ## Phase 13 Completion Evidence
 

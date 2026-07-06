@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>InTheLoop by AutoTok</title>
-  <meta name="description" content="InTheLoop by AutoTok is a local-first workflow for creating, reviewing, and publishing approved short-form videos through official platform integrations.">
+  <meta name="description" content="InTheLoop by AutoTok is a local-first workflow for creating, reviewing, and preparing TikTok-ready short-form video packages for manual publishing.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -20,7 +20,7 @@
     <section class="hero">
       <div class="hero-copy">
         <p class="eyebrow">Local-first video workflow</p>
-        <h1>InTheLoop helps operators create, review, and publish approved short-form videos.</h1>
+        <h1>InTheLoop helps operators create, review, and prepare TikTok-ready short-form videos.</h1>
         <p class="lead">InTheLoop is powered by AutoTok, a desktop and command-line workflow for turning approved source text and authorized media into reviewable vertical video packages.</p>
       </div>
     </section>
@@ -32,21 +32,21 @@
       </article>
       <article>
         <h2>Review First</h2>
-        <p>Preview the generated video package locally and approve it before any publishing command can run.</p>
+        <p>Preview the generated video package locally and approve it before preparing a publishing handoff.</p>
       </article>
       <article>
-        <h2>Publish Explicitly</h2>
-        <p>Use official platform APIs only after human approval and an explicit publish confirmation.</p>
+        <h2>Publish Manually</h2>
+        <p>Use the generated TikTok upload package, then manually upload and publish from your own TikTok account.</p>
       </article>
     </section>
 
     <section class="content-band">
       <div>
-        <h2>TikTok Integration</h2>
-        <p>InTheLoop uses Login Kit to authorize the operator's TikTok account and TikTok's Content Posting API to publish approved videos through Direct Post. The workflow is designed for the account owner to review and explicitly confirm publication.</p>
+        <h2>TikTok Manual Handoff</h2>
+        <p>InTheLoop prepares a local folder containing the rendered MP4, suggested caption, metadata, and upload instructions. The account owner reviews TikTok's upload screen and clicks the final publish button manually.</p>
         <ul>
-          <li>Scopes used for TikTok: <code>user.info.basic</code>, <code>video.upload</code>, and <code>video.publish</code>.</li>
-          <li>Generated content is stored locally unless the operator chooses to publish.</li>
+          <li>No TikTok Login Kit, OAuth scopes, Content Posting API, Direct Post, or API tokens are used for publishing.</li>
+          <li>Generated content stays local unless the operator manually uploads it to TikTok.</li>
           <li>The app does not automate comments, direct messages, follows, likes, or other engagement behavior.</li>
         </ul>
       </div>

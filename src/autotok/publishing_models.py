@@ -1,4 +1,4 @@
-"""Publishing domain models for Phase 11 official integrations."""
+"""Publishing domain models for local manual-upload handoff packages."""
 
 from __future__ import annotations
 
@@ -7,121 +7,106 @@ from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from typing import Any
 
-PUBLISHING_SCHEMA_VERSION = 1
+PUBLISHING_SCHEMA_VERSION = 2
 
 
 class PublishingProvider(StrEnum):
-    """Official publishing providers supported by AutoTok."""
+    """Manual publishing targets supported by AutoTok."""
 
     TIKTOK = "tiktok"
 
 
-class PublishSourceType(StrEnum):
-    """TikTok Direct Post source modes."""
-
-    FILE_UPLOAD = "FILE_UPLOAD"
-    PULL_FROM_URL = "PULL_FROM_URL"
-
-
 class PublicationStatus(StrEnum):
-    """Local publication lifecycle status."""
+    """Local manual-upload lifecycle status."""
 
-    DRY_RUN_READY = "dry_run_ready"
+    EXPORT_READY = "export_ready"
     BLOCKED = "blocked"
-    SUBMITTED = "submitted"
-    PROCESSING = "processing"
-    PUBLISHED = "published"
+    MANUALLY_PUBLISHED = "manually_published"
     FAILED = "failed"
 
 
 class PublicationEventType(StrEnum):
-    """Audit event categories for publication records."""
+    """Audit event categories for manual publication records."""
 
-    DRY_RUN = "dry_run"
-    SUBMITTED = "submitted"
-    STATUS_FETCHED = "status_fetched"
+    EXPORT_PREPARED = "export_prepared"
     BLOCKED = "blocked"
+    MANUAL_STATUS_RECORDED = "manual_status_recorded"
     FAILED = "failed"
 
 
 @dataclass(frozen=True, slots=True)
-class TikTokCapability:
-    """Verified official TikTok Content Posting API capability snapshot."""
+class TikTokManualUploadOptions:
+    """Operator-facing TikTok upload settings to include in the handoff package."""
 
-    provider: PublishingProvider = PublishingProvider.TIKTOK
-    direct_post_endpoint: str = "https://open.tiktokapis.com/v2/post/publish/video/init/"
-    status_endpoint: str = "https://open.tiktokapis.com/v2/post/publish/status/fetch/"
-    oauth_token_endpoint: str = "https://open.tiktokapis.com/v2/oauth/token/"
-    oauth_revoke_endpoint: str = "https://open.tiktokapis.com/v2/oauth/revoke/"
-    required_scope: str = "video.publish"
-    supports_direct_post: bool = True
-    supports_scheduling: bool = False
-    verified_at: str = "2026-07-01"
-    documentation_urls: tuple[str, ...] = (
-        "https://developers.tiktok.com/doc/content-posting-api-get-started/",
-        "https://developers.tiktok.com/doc/content-posting-api-reference-direct-post/",
-        "https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status/",
-        "https://developers.tiktok.com/doc/oauth-user-access-token-management/",
-    )
-
-    def to_dict(self) -> dict[str, object]:
-        """Serialize capability verification."""
-        return {
-            "provider": self.provider.value,
-            "direct_post_endpoint": self.direct_post_endpoint,
-            "status_endpoint": self.status_endpoint,
-            "oauth_token_endpoint": self.oauth_token_endpoint,
-            "oauth_revoke_endpoint": self.oauth_revoke_endpoint,
-            "required_scope": self.required_scope,
-            "supports_direct_post": self.supports_direct_post,
-            "supports_scheduling": self.supports_scheduling,
-            "verified_at": self.verified_at,
-            "documentation_urls": list(self.documentation_urls),
-        }
-
-
-@dataclass(frozen=True, slots=True)
-class TikTokDirectPostOptions:
-    """Official TikTok Direct Post request options."""
-
-    privacy_level: str = "SELF_ONLY"
+    privacy_level: str = "private_or_unlisted_until_reviewed"
     disable_duet: bool = False
     disable_comment: bool = False
     disable_stitch: bool = False
     cover_timestamp_ms: int = 0
-    source_type: PublishSourceType = PublishSourceType.FILE_UPLOAD
-    video_url: str | None = None
 
     def to_dict(self) -> dict[str, object]:
-        """Serialize request options."""
+        """Serialize manual upload options."""
         return {
             "privacy_level": self.privacy_level,
             "disable_duet": self.disable_duet,
             "disable_comment": self.disable_comment,
             "disable_stitch": self.disable_stitch,
             "cover_timestamp_ms": self.cover_timestamp_ms,
-            "source_type": self.source_type.value,
-            "video_url": self.video_url,
         }
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, object]) -> TikTokDirectPostOptions:
-        """Deserialize request options."""
-        try:
-            source_type = PublishSourceType(_required_str(data, "source_type"))
-        except ValueError as exc:
-            raise ValueError("source_type is unsupported.") from exc
-        video_url = data.get("video_url")
-        if video_url is not None and not isinstance(video_url, str):
-            raise ValueError("video_url must be a string or null.")
+    def from_dict(cls, data: Mapping[str, object]) -> TikTokManualUploadOptions:
+        """Deserialize manual upload options."""
         return cls(
             privacy_level=_required_str(data, "privacy_level"),
             disable_duet=_required_bool(data, "disable_duet"),
             disable_comment=_required_bool(data, "disable_comment"),
             disable_stitch=_required_bool(data, "disable_stitch"),
             cover_timestamp_ms=_required_int(data, "cover_timestamp_ms"),
-            source_type=source_type,
-            video_url=video_url or None,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ManualUploadPackage:
+    """Files prepared for the operator to upload manually."""
+
+    package_dir: str
+    video_path: str
+    caption_path: str
+    metadata_path: str
+    instructions_path: str
+    title: str
+    caption: str
+    hashtags: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize a manual upload package."""
+        return {
+            "package_dir": self.package_dir,
+            "video_path": self.video_path,
+            "caption_path": self.caption_path,
+            "metadata_path": self.metadata_path,
+            "instructions_path": self.instructions_path,
+            "title": self.title,
+            "caption": self.caption,
+            "hashtags": list(self.hashtags),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, object]) -> ManualUploadPackage:
+        """Deserialize a manual upload package."""
+        hashtags = data.get("hashtags", [])
+        if not isinstance(hashtags, Sequence) or isinstance(hashtags, str):
+            raise ValueError("hashtags must be a list of strings.")
+        return cls(
+            package_dir=_required_str(data, "package_dir"),
+            video_path=_required_str(data, "video_path"),
+            caption_path=_required_str(data, "caption_path"),
+            metadata_path=_required_str(data, "metadata_path"),
+            instructions_path=_required_str(data, "instructions_path"),
+            title=_required_str(data, "title"),
+            caption=_required_str(data, "caption"),
+            hashtags=tuple(str(item) for item in hashtags if str(item).strip()),
         )
 
 
@@ -166,7 +151,7 @@ class PublicationAuditEvent:
 
 @dataclass(frozen=True, slots=True)
 class PublicationRecord:
-    """Persistent local publication state for one render/provider pair."""
+    """Persistent local manual-upload state for one render/provider pair."""
 
     publication_id: str
     render_id: str
@@ -176,10 +161,9 @@ class PublicationRecord:
     updated_at: str
     approved_review_at: str
     render_output_path: str
-    request_options: TikTokDirectPostOptions
-    capability: TikTokCapability = field(default_factory=TikTokCapability)
-    publish_id: str | None = None
-    last_status_payload: Mapping[str, Any] | None = None
+    manual_options: TikTokManualUploadOptions
+    upload_package: ManualUploadPackage | None = None
+    manual_publish_url: str | None = None
     audit_events: tuple[PublicationAuditEvent, ...] = ()
     schema_version: int = PUBLISHING_SCHEMA_VERSION
 
@@ -188,17 +172,17 @@ class PublicationRecord:
         event: PublicationAuditEvent,
         *,
         status: PublicationStatus | None = None,
-        publish_id: str | None = None,
-        last_status_payload: Mapping[str, Any] | None = None,
+        upload_package: ManualUploadPackage | None = None,
+        manual_publish_url: str | None = None,
     ) -> PublicationRecord:
         """Return a copy with an appended event and refreshed status fields."""
         return replace(
             self,
             updated_at=event.created_at,
             status=self.status if status is None else status,
-            publish_id=self.publish_id if publish_id is None else publish_id,
-            last_status_payload=(
-                self.last_status_payload if last_status_payload is None else last_status_payload
+            upload_package=self.upload_package if upload_package is None else upload_package,
+            manual_publish_url=(
+                self.manual_publish_url if manual_publish_url is None else manual_publish_url
             ),
             audit_events=(*self.audit_events, event),
         )
@@ -215,12 +199,11 @@ class PublicationRecord:
             "updated_at": self.updated_at,
             "approved_review_at": self.approved_review_at,
             "render_output_path": self.render_output_path,
-            "request_options": self.request_options.to_dict(),
-            "capability": self.capability.to_dict(),
-            "publish_id": self.publish_id,
-            "last_status_payload": (
-                None if self.last_status_payload is None else dict(self.last_status_payload)
-            ),
+            "manual_options": self.manual_options.to_dict(),
+            "upload_package": None
+            if self.upload_package is None
+            else self.upload_package.to_dict(),
+            "manual_publish_url": self.manual_publish_url,
             "audit_events": [event.to_dict() for event in self.audit_events],
         }
 
@@ -230,15 +213,15 @@ class PublicationRecord:
         schema_version = _required_int(data, "schema_version")
         if schema_version != PUBLISHING_SCHEMA_VERSION:
             raise ValueError(f"Unsupported publishing schema_version: {schema_version}")
-        request_options = data.get("request_options")
+        manual_options = data.get("manual_options")
+        upload_package = data.get("upload_package")
         events = data.get("audit_events", [])
-        last_status_payload = data.get("last_status_payload")
-        if not isinstance(request_options, Mapping):
-            raise ValueError("request_options must be an object.")
+        if not isinstance(manual_options, Mapping):
+            raise ValueError("manual_options must be an object.")
+        if upload_package is not None and not isinstance(upload_package, Mapping):
+            raise ValueError("upload_package must be an object or null.")
         if not isinstance(events, Sequence) or isinstance(events, str):
             raise ValueError("audit_events must be a list.")
-        if last_status_payload is not None and not isinstance(last_status_payload, Mapping):
-            raise ValueError("last_status_payload must be an object or null.")
         try:
             provider = PublishingProvider(_required_str(data, "provider"))
             status = PublicationStatus(_required_str(data, "status"))
@@ -254,33 +237,30 @@ class PublicationRecord:
             updated_at=_required_str(data, "updated_at"),
             approved_review_at=_required_str(data, "approved_review_at"),
             render_output_path=_required_str(data, "render_output_path"),
-            request_options=TikTokDirectPostOptions.from_dict(request_options),
-            publish_id=_optional_str(data, "publish_id"),
-            last_status_payload=(
-                None if last_status_payload is None else dict(last_status_payload)
+            manual_options=TikTokManualUploadOptions.from_dict(manual_options),
+            upload_package=(
+                None if upload_package is None else ManualUploadPackage.from_dict(upload_package)
             ),
+            manual_publish_url=_optional_str(data, "manual_publish_url"),
             audit_events=tuple(_events_from_sequence(events)),
         )
 
 
 @dataclass(frozen=True, slots=True)
 class PublicationResult:
-    """Result returned by publication workflows."""
+    """Result returned by manual publication workflows."""
 
     record: PublicationRecord
-    dry_run: bool
+    package: ManualUploadPackage
     duplicate_prevented: bool = False
-    provider_response: Mapping[str, Any] | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Serialize a publication result."""
         return {
-            "dry_run": self.dry_run,
+            "manual_upload": True,
             "duplicate_prevented": self.duplicate_prevented,
             "publication": self.record.to_dict(),
-            "provider_response": (
-                None if self.provider_response is None else dict(self.provider_response)
-            ),
+            "package": self.package.to_dict(),
         }
 
 

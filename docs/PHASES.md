@@ -369,34 +369,31 @@ Excluded:
 
 Exit gate: a user can review and approve an export package without editing files manually.
 
-## Phase 11 - Official Publishing and Scheduling
+## Phase 11 - Manual TikTok Publishing Handoff
 
-Goal: publish approved content through an official, supported platform integration.
+Goal: prepare approved content for manual TikTok publishing without platform API access.
 
 Status: complete.
 
 In scope:
 
-- official TikTok Content Posting API integration
-- capability verification from official provider docs
-- OAuth token lifecycle request helpers
-- environment-backed secret handling
-- dry-run publication records
-- explicit review approval and `--execute --confirm` gates
-- upload initialization, upload, status fetch, and status mapping
-- idempotency and duplicate prevention
-- scheduling rejection where official support is not verified
-- local audit records
+- TikTok manual upload package generation
+- approved review package requirement
+- copied rendered video, caption, metadata, and instructions files
+- local publication records and audit events
+- manual status recording after the operator publishes
+- explicit exclusion of API publishing, OAuth, scopes, app review, and other platforms
 
 Excluded:
 
-- unofficial browser posting
-- autonomous posting without human approval
+- TikTok Login Kit, Content Posting API, Direct Post, or API credentials
+- YouTube, Shorts, Instagram, or other sites
+- browser automation or autonomous posting
 - unsupported scheduling
 - engagement automation
 - analytics feedback
 
-Exit gate: an approved package can be published through the selected official integration without duplicate posting.
+Exit gate: an approved package can be prepared locally, handed to the operator, and marked manually published after the operator posts it on TikTok.
 
 ## Phase 12 - Production Hardening and Deployment
 

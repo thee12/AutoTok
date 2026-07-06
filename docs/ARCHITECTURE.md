@@ -38,9 +38,9 @@ AutoTok is being built as a local-first modular monolith. Phase 13 adds local an
 - `autotok review serve` starts the local browser dashboard.
 - `autotok review list` and `autotok review inspect` expose review state without
   opening a browser.
-- `autotok publish tiktok` prepares a dry run or explicitly executes an approved TikTok Direct Post publish.
-- `autotok publish status` inspects local publication state or fetches official TikTok status.
-- `autotok publish token exchange` and `autotok publish token refresh` build or execute redacted OAuth token lifecycle requests.
+- `autotok publish tiktok` prepares a local TikTok manual upload package for an approved render.
+- `autotok publish status` inspects local manual publication state.
+- `autotok publish mark` records that the operator manually published a prepared TikTok package.
 - `autotok ops health`, `metrics`, `backup`, `restore`, `retention`, `audit`, and `profile` provide local operational hardening commands.
 - `autotok analytics template`, `experiment`, `import`, and `report` manage local analytics feedback, experiments, template variants, and human-reviewed recommendations.
 - `src/autotok/config.py` contains the initial configuration model.
@@ -55,9 +55,9 @@ AutoTok is being built as a local-first modular monolith. Phase 13 adds local an
 - `src/autotok/review_models.py` contains review package, editable metadata,
   regeneration request, approval state, and audit event dataclasses.
 - `src/autotok/review_storage.py` persists review packages under `data/reviews/`.
-- `src/autotok/publishing_models.py` contains publication records, TikTok capability verification, options, statuses, and audit events.
+- `src/autotok/publishing_models.py` contains manual publication records, TikTok upload options, statuses, upload-package metadata, and audit events.
 - `src/autotok/publishing_storage.py` persists publication records under `data/publications/`.
-- `src/autotok/publishing.py` contains the official TikTok Content Posting API adapter, OAuth helpers, dry-run workflow, status fetch, and duplicate-prevention logic.
+- `src/autotok/publishing.py` prepares local TikTok manual upload packages and records manual publication status without calling platform APIs.
 - `src/autotok/operations.py` contains health checks, metrics snapshots, ZIP backup/restore, transient retention, dependency/secret audit checks, and lightweight profiling.
 - `src/autotok/analytics_models.py` contains template variant, experiment, assignment, performance record, and recommendation dataclasses.
 - `src/autotok/analytics_storage.py` persists analytics artifacts under `data/analytics/`.
@@ -126,14 +126,9 @@ safe built-in defaults:
 7. `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional live Reddit bearer token
 8. `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
 9. `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
-10. `AUTOTOK_TIKTOK_CLIENT_KEY`, optional TikTok OAuth client key
-11. `AUTOTOK_TIKTOK_CLIENT_SECRET`, optional TikTok OAuth client secret
-12. `AUTOTOK_TIKTOK_ACCESS_TOKEN`, optional TikTok user access token
-13. `AUTOTOK_TIKTOK_REFRESH_TOKEN`, optional TikTok refresh token
-14. `AUTOTOK_TIKTOK_TIMEOUT_SECONDS`, default `30`
-15. `AUTOTOK_LOG_FORMAT`, default `text`, set to `json` for structured operational logs
+10. `AUTOTOK_LOG_FORMAT`, default `text`, set to `json` for structured operational logs
 
-Secrets must remain in environment variables or local ignored files. Phase 7 live Reddit discovery requires an OAuth bearer token supplied by environment; fixture discovery and all automated tests remain credential-free. Rendering still only reads approved local artifacts and uses local FFmpeg/FFprobe executables.
+Secrets must remain in environment variables or local ignored files. Phase 7 live Reddit discovery requires an OAuth bearer token supplied by environment; fixture discovery and all automated tests remain credential-free. TikTok publishing is manual-only and does not use TikTok API secrets. Rendering still only reads approved local artifacts and uses local FFmpeg/FFprobe executables.
 
 ## Runtime Data
 

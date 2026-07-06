@@ -4,11 +4,11 @@
 
 Each phase receives a separate, highly specific Codex prompt. Codex must finish, test, document, and report on that phase before receiving the next prompt.
 
-The first usable local MVP is complete after Phase 6. Phases 7–13 extend the MVP into an automated content-discovery, review, publishing, and operational platform.
+The first usable local MVP is complete after Phase 6. Phases 7Ã¢â‚¬â€œ13 extend the MVP into an automated content-discovery, review, publishing, and operational platform.
 
 ---
 
-## Phase 0 — Repository bootstrap and architecture
+## Phase 0 - Project foundation and guardrails
 
 **Goal:** Turn the repository containing only `AGENTS.md` into a clean, runnable Python project foundation.
 
@@ -32,7 +32,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 1 — Manual story ingestion and canonical models
+## Phase 1 - Story intake and normalization
 
 **Goal:** Accept a local text story and turn it into a validated internal source record.
 
@@ -53,7 +53,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 2 — Script transformation and review artifacts
+## Phase 2 - Script transformation and review artifacts
 
 **Goal:** Convert an imported story into a narration-ready script while preserving provenance and requiring review.
 
@@ -75,7 +75,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 3 — Narration audio
+## Phase 3 - Voiceover generation and audio assets
 
 **Goal:** Produce validated narration audio from an approved script.
 
@@ -98,7 +98,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 4 — Subtitle generation and alignment
+## Phase 4 - Subtitles and timing
 
 **Goal:** Produce accurate, readable subtitle artifacts synchronized to narration.
 
@@ -120,7 +120,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 5 — Background-media library
+## Phase 5 - Background media catalog and selection
 
 **Goal:** Manage authorized gameplay or background clips and select a suitable segment.
 
@@ -143,7 +143,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 6 — End-to-end vertical video rendering
+## Phase 6 - Video rendering pipeline
 
 **Goal:** Complete the first local MVP by producing a validated vertical video package.
 
@@ -168,7 +168,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 7 — Approved Reddit and source ingestion
+## Phase 7 - Source discovery integrations
 
 **Goal:** Add automated discovery from approved public sources without coupling source access to the rendering pipeline.
 
@@ -189,7 +189,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 8 — Scoring, deduplication, and content gates
+## Phase 8 - Content quality, compliance, and deduping
 
 **Goal:** Prevent low-quality, repeated, sensitive, or unsuitable stories from automatically entering production.
 
@@ -208,7 +208,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 9 — Persistent orchestration and batch generation
+## Phase 9 - Workflow orchestration and job state
 
 **Goal:** Turn isolated commands into resumable, traceable jobs.
 
@@ -228,7 +228,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 10 — Local review dashboard
+## Phase 10 - Human review UI
 
 **Goal:** Provide a browser-based local interface for reviewing generated stories, scripts, audio, subtitles, videos, and metadata.
 
@@ -248,28 +248,23 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 11 — Official publishing and scheduling
+## Phase 11 - Manual TikTok publishing handoff
 
-**Goal:** Publish approved content through an official, supported platform integration.
+**Goal:** Prepare approved content for manual TikTok publishing without platform API access.
 
 **Deliverables:**
-- publishing-adapter interface
-- platform capability verification from official docs
-- OAuth/token lifecycle
-- secure secret storage approach
-- dry run
-- upload/publish status
-- idempotency and duplicate prevention
-- scheduling only where officially supported
-- failure recovery
-- explicit approval gate
-- audit record
+- approved-review requirement before publishing handoff
+- local TikTok manual upload package
+- copied video, caption, metadata, and instructions files
+- local publication status and audit record
+- manual status recording after the operator publishes
+- explicit exclusion of TikTok OAuth, scopes, Direct Post, browser automation, scheduling, and non-TikTok platforms
 
-**Exit gate:** An approved package can be published or scheduled through the selected official integration without duplicate posting.
+**Exit gate:** An approved package can be prepared locally, handed to the operator for manual TikTok upload, and marked manually published after the operator posts it.
 
 ---
 
-## Phase 12 — Production hardening and deployment
+## Phase 12 - Production hardening and deployment
 
 **Goal:** Make the system maintainable for regular use.
 
@@ -290,7 +285,7 @@ The first usable local MVP is complete after Phase 6. Phases 7–13 extend the M
 
 ---
 
-## Phase 13 — Optional analytics and advanced templates
+## Phase 13 - Optional analytics and advanced templates
 
 **Goal:** Improve the workflow using measured results rather than assumptions.
 

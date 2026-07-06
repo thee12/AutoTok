@@ -2,9 +2,9 @@
 
 AutoTok is a local-first, human-reviewed pipeline for creating short-form
 vertical video packages from approved source stories. This repository is
-currently complete through Phase 13, with persistent local jobs, a browser-based local review dashboard, an official TikTok publishing adapter, local operations tooling, and local analytics feedback.
+currently complete through Phase 13, with persistent local jobs, a browser-based local review dashboard, local TikTok manual upload packages, local operations tooling, and local analytics feedback.
 
-Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 adds TikTok Content Posting API dry runs, explicit approval-gated publishing, OAuth request helpers, status fetches, and duplicate prevention. Phase 12 adds health checks, metrics, backup/restore, retention, audits, profiling, JSON logs, and an operations runbook. Phase 13 adds local analytics records, experiment definitions, template variants, reports, and human-reviewed recommendations. No paid
+Reddit discovery is available only through authenticated official Data API configuration or local fixtures. Content gates are local filesystem artifacts. Phase 10 adds local review state and a localhost dashboard for generated render packages. Phase 11 now prepares approval-gated TikTok manual upload packages and local publication audit records without API publishing. Phase 12 adds health checks, metrics, backup/restore, retention, audits, profiling, JSON logs, and an operations runbook. Phase 13 adds local analytics records, experiment definitions, template variants, reports, and human-reviewed recommendations. No paid
 provider calls are made by tests.
 
 ## Requirements
@@ -174,17 +174,17 @@ Inspect a completed render package:
 autotok render inspect render_0123456789abcdef
 ```
 
-Prepare a TikTok publishing dry run for an approved review package:
+Prepare a TikTok manual upload package for an approved review package:
 
 ```bash
 autotok publish tiktok render_0123456789abcdef
 ```
 
-Execute a real official TikTok Direct Post publish only after approval and explicit confirmation:
+Inspect or mark local manual publishing status:
 
 ```bash
-autotok publish tiktok render_0123456789abcdef --execute --confirm
-autotok publish status render_0123456789abcdef --fetch
+autotok publish status render_0123456789abcdef
+autotok publish mark render_0123456789abcdef --url https://www.tiktok.com/@you/video/123
 ```
 
 Create and restore local data backups:
@@ -237,13 +237,8 @@ Current environment variables:
 - `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional bearer token for live Reddit Data API discovery
 - `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
 - `AUTOTOK_REDDIT_TIMEOUT_SECONDS`, default `20`
-- `AUTOTOK_TIKTOK_CLIENT_KEY`, optional TikTok OAuth client key
-- `AUTOTOK_TIKTOK_CLIENT_SECRET`, optional TikTok OAuth client secret
-- `AUTOTOK_TIKTOK_ACCESS_TOKEN`, optional TikTok user access token for real publish/status calls
-- `AUTOTOK_TIKTOK_REFRESH_TOKEN`, optional TikTok refresh token for token refresh
-- `AUTOTOK_TIKTOK_TIMEOUT_SECONDS`, default `30`
 
-The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command. Reddit and TikTok secrets are never printed by the CLI; `autotok doctor` reports only whether each secret is configured.
+The CLI `--data-dir` option overrides `AUTOTOK_DATA_DIR` for that command. Reddit secrets are never printed by the CLI; TikTok publishing is manual-only and does not require TikTok API secrets.
 
 ## Story Artifacts
 
@@ -449,7 +444,7 @@ Phase 11 stores publication records under:
 data/publications/<render_id>/tiktok/publication.json
 ```
 
-TikTok publishing uses the official Content Posting API. Dry-run is the default and records a redacted request plan. Real publishing requires an approved review package plus `--execute --confirm` and configured TikTok credentials. Scheduling is rejected for TikTok because no official scheduling field was verified for Direct Post in Phase 11. See `docs/PUBLISHING.md` for the provider verification notes and token lifecycle commands.
+TikTok publishing is manual-only. AutoTok prepares a local `manual_upload` package with `video.mp4`, `caption.txt`, `metadata.json`, and `instructions.md`; the operator uploads and publishes from their own TikTok account. AutoTok does not request TikTok scopes, store TikTok API credentials, call Direct Post, schedule posts, or automate other platforms. See `docs/PUBLISHING.md`.
 
 ## Analytics Artifacts
 

@@ -1,84 +1,54 @@
 # Publishing
 
-Phase 11 adds an official publishing path for approved render packages through
-TikTok's Content Posting API. Publishing is still human-gated and local-first:
-AutoTok will not upload anything unless a render package has been approved in
-the review workflow and the command includes both `--execute` and `--confirm`.
+AutoTok publishing is a local manual handoff for TikTok. It prepares the video,
+caption, metadata, and operator instructions on disk, then the user manually
+uploads and publishes from their own TikTok account.
 
-## Verified TikTok Capability
+AutoTok does not use TikTok Login Kit, OAuth tokens, Content Posting API, Direct
+Post, browser automation, or any other platform API for publishing. You remain in
+control of TikTok's upload screen and final publish button.
 
-Verified against official TikTok developer documentation on 2026-07-01:
+## Scope
 
-- Direct posting is supported through
-  `https://open.tiktokapis.com/v2/post/publish/video/init/`.
-- Direct Post requires the `video.publish` scope and a user access token.
-- Local file upload uses the returned `upload_url`; pull-from-URL uses a
-  public `video_url`.
-- Publish status is fetched through
-  `https://open.tiktokapis.com/v2/post/publish/status/fetch/`.
-- OAuth authorization-code exchange and refresh use
-  `https://open.tiktokapis.com/v2/oauth/token/`.
-- TikTok Direct Post scheduling is not implemented because the official docs
-  verified for Phase 11 do not expose a supported scheduling field.
+In scope:
 
-Official references:
+- approved render packages only
+- TikTok manual upload packages
+- copied `video.mp4`, `caption.txt`, `metadata.json`, and `instructions.md`
+- local publication records and audit events
+- manual status recording after you publish yourself
 
-- https://developers.tiktok.com/doc/content-posting-api-get-started/
-- https://developers.tiktok.com/doc/content-posting-api-reference-direct-post/
-- https://developers.tiktok.com/doc/content-posting-api-reference-get-video-status/
-- https://developers.tiktok.com/doc/oauth-user-access-token-management/
+Out of scope:
 
-## Configuration
-
-Secrets are supplied through environment variables or a local ignored `.env`
-file. Publication records and CLI output redact token and secret fields.
-
-```text
-AUTOTOK_TIKTOK_CLIENT_KEY=
-AUTOTOK_TIKTOK_CLIENT_SECRET=
-AUTOTOK_TIKTOK_ACCESS_TOKEN=
-AUTOTOK_TIKTOK_REFRESH_TOKEN=
-AUTOTOK_TIKTOK_TIMEOUT_SECONDS=30
-```
+- API upload or Direct Post
+- Login Kit, OAuth, access tokens, refresh tokens, scopes, or app review
+- scheduling
+- YouTube, Shorts, Instagram, or other platforms
+- engagement automation such as likes, comments, follows, or messages
 
 ## Commands
 
-Prepare a dry run for an approved render package:
+Prepare a TikTok manual upload package for an approved render:
 
 ```bash
 autotok publish tiktok render_0123456789abcdef
 ```
 
-Execute a real Direct Post publish:
-
-```bash
-autotok publish tiktok render_0123456789abcdef --execute --confirm
-```
-
-Inspect local publication state:
+Inspect the local publication record:
 
 ```bash
 autotok publish status render_0123456789abcdef
 ```
 
-Fetch official TikTok status for a submitted publish:
+After you manually upload and publish in TikTok, record that local status:
 
 ```bash
-autotok publish status render_0123456789abcdef --fetch
+autotok publish mark render_0123456789abcdef --url https://www.tiktok.com/@you/video/123
 ```
 
-Build credential-safe OAuth request previews:
+The `--url` value is optional. It is stored only in the local publication record.
 
-```bash
-autotok publish token exchange --code AUTH_CODE --redirect-uri https://example.com/callback
-autotok publish token refresh
-```
-
-Add `--execute` to token commands only when configured credentials should be
-sent to TikTok. Responses are redacted before printing; refreshed tokens must be
-stored by the operator in local secret storage.
-
-## Local Records
+## Local Files
 
 Publication records are stored under:
 
@@ -86,8 +56,27 @@ Publication records are stored under:
 data/publications/<render_id>/tiktok/publication.json
 ```
 
-Each record contains provider capability verification, the approved review
-timestamp, redacted dry-run or provider-response audit events, provider publish
-ID when submitted, and the latest mapped status. AutoTok prevents duplicate real
-submissions once a render/provider pair has been submitted, is processing, or is
-published.
+Manual upload package files are stored under:
+
+```text
+data/publications/<render_id>/tiktok/manual_upload/
+```
+
+The package contains:
+
+- `video.mp4`: the rendered portrait video copied from the render package
+- `caption.txt`: the suggested caption and hashtags
+- `metadata.json`: local provenance, review settings, and safety flags
+- `instructions.md`: step-by-step manual TikTok upload notes
+
+## Manual TikTok Upload Flow
+
+1. Approve the render in `autotok review` or the local review dashboard.
+2. Run `autotok publish tiktok <render_id>`.
+3. Open TikTok in your browser or the TikTok app.
+4. Start a normal manual upload from your own account.
+5. Select `video.mp4` from the manual upload package.
+6. Paste the caption from `caption.txt`.
+7. Review TikTok's copyright, synthetic-media, privacy, audience, and safety prompts yourself.
+8. Click TikTok's final publish/post button only when you are satisfied.
+9. Optionally run `autotok publish mark <render_id> --url <posted-url>`.
