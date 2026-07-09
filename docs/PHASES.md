@@ -118,7 +118,8 @@ In scope:
 
 - provider-independent TTS interface
 - manually supplied WAV narration audio path
-- explicit local WAV provider for credential-free development
+- explicit local WAV provider for credential-free placeholder audio
+- pyttsx3 provider for no-cost offline spoken narration with system voices
 - credential-safe TTS provider and timeout configuration
 - timeout validation and provider error mapping
 - deterministic fake provider for tests

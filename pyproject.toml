@@ -12,6 +12,10 @@ authors = [{ name = "AutoTok contributors" }]
 dependencies = []
 
 [project.optional-dependencies]
+tts = [
+  "pyttsx3>=2.90",
+]
+
 dev = [
   "mypy>=1.10",
   "pytest>=8.2",

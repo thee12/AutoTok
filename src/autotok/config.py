@@ -18,7 +18,7 @@ DEFAULT_REDDIT_USER_AGENT = "AutoTok/0.1 local-source-ingestion"
 DEFAULT_REDDIT_TIMEOUT_SECONDS = 20
 VALID_LOG_LEVELS = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
 VALID_LOG_FORMATS = {"text", "json"}
-VALID_TTS_PROVIDERS = {"local_wav"}
+VALID_TTS_PROVIDERS = {"local_wav", "pyttsx3"}
 
 
 class ConfigError(ConfigurationError):

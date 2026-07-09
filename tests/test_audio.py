@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import struct
+import subprocess
 import wave
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,13 +12,14 @@ import pytest
 from autotok.audio_models import AudioSourceType, NarrationAudioRecord
 from autotok.audio_probe import probe_wav_audio
 from autotok.audio_storage import AudioStore
-from autotok.errors import UnsupportedMediaError, UserInputError
+from autotok.errors import ProviderError, UnsupportedMediaError, UserInputError
 from autotok.ingestion import build_manual_text_record
 from autotok.script_models import NarrationScriptRecord
 from autotok.transform import DeterministicScriptTransformer
 from autotok.tts import (
     FakeTtsProvider,
     LocalWavTtsProvider,
+    Pyttsx3TtsProvider,
     build_manual_audio_record,
     build_tts_audio_record,
 )
@@ -69,6 +71,65 @@ def test_fake_tts_provider_generates_valid_record() -> None:
     assert record.metadata.duration_seconds == 1.0
     assert record.provider_request["paid_call"] is False
     assert audio_path.exists()
+
+
+def test_pyttsx3_provider_generates_valid_record_with_subprocess(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    script = build_pending_script().approve("2026-06-30T12:00:00Z")
+
+    def fake_run(
+        args: list[str],
+        *,
+        capture_output: bool,
+        check: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        assert capture_output is True
+        assert check is False
+        assert text is True
+        assert timeout == 12
+        output_path = Path(args[4])
+        write_test_wav(output_path, sample_rate=16_000, frame_count=16_000)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr("autotok.tts.subprocess.run", fake_run)
+
+    record, audio_path = build_tts_audio_record(
+        script,
+        provider=Pyttsx3TtsProvider(rate_wpm=160),
+        timeout_seconds=12,
+        created_at=FIXED_TIME,
+    )
+
+    assert record.source_type is AudioSourceType.TTS_GENERATED
+    assert record.provider_name == "pyttsx3"
+    assert record.provider_request["rate_wpm"] == 160
+    assert record.provider_request["network"] is False
+    assert record.provider_request["paid_call"] is False
+    assert record.metadata.duration_seconds == 1.0
+    assert audio_path.exists()
+
+
+def test_pyttsx3_provider_reports_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    script = build_pending_script().approve("2026-06-30T12:00:00Z")
+
+    def fake_run(
+        args: list[str],
+        *,
+        capture_output: bool,
+        check: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args, 1, "", "pyttsx3 is not installed")
+
+    monkeypatch.setattr("autotok.tts.subprocess.run", fake_run)
+
+    with pytest.raises(ProviderError, match="pyttsx3 is not installed"):
+        build_tts_audio_record(script, provider=Pyttsx3TtsProvider(), created_at=FIXED_TIME)
 
 
 def test_manual_audio_record_preserves_source_path(tmp_path: Path) -> None:

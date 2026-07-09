@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import math
 import struct
+import subprocess
+import sys
 import tempfile
 import wave
 from dataclasses import dataclass
@@ -20,11 +22,51 @@ from autotok.script_models import NarrationScriptRecord, ReviewStatus
 DEFAULT_TTS_TIMEOUT_SECONDS = 30
 LOCAL_WAV_PROVIDER_NAME = "local_wav"
 LOCAL_WAV_PROVIDER_VERSION = "1"
+PYTTSX3_PROVIDER_NAME = "pyttsx3"
+PYTTSX3_PROVIDER_VERSION = "1"
+PYTTSX3_DEFAULT_RATE_WPM = 175
 FAKE_TTS_PROVIDER_NAME = "fake_tts"
 FAKE_TTS_PROVIDER_VERSION = "test"
 DEFAULT_SAMPLE_RATE_HZ = 16_000
 DEFAULT_TONE_HZ = 220
 DEFAULT_AMPLITUDE = 0.18
+
+_PYTTSX3_CHILD_CODE = r"""
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+try:
+    import pyttsx3
+except ImportError as exc:
+    raise SystemExit("pyttsx3 is not installed") from exc
+
+text_path = Path(sys.argv[1])
+output_path = Path(sys.argv[2])
+voice_id = sys.argv[3]
+rate_wpm = int(sys.argv[4])
+text = text_path.read_text(encoding="utf-8").strip()
+if not text:
+    raise SystemExit("script text is empty")
+
+engine = pyttsx3.init()
+try:
+    engine.setProperty("rate", rate_wpm)
+    if voice_id:
+        voices = engine.getProperty("voices") or []
+        known_voice_ids = {str(getattr(voice, "id", "")) for voice in voices}
+        if voice_id not in known_voice_ids:
+            raise SystemExit(f"pyttsx3 voice was not found: {voice_id}")
+        engine.setProperty("voice", voice_id)
+    engine.save_to_file(text, str(output_path))
+    engine.runAndWait()
+finally:
+    engine.stop()
+
+if not output_path.exists() or output_path.stat().st_size <= 0:
+    raise SystemExit("pyttsx3 did not produce an audio file")
+"""
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +124,77 @@ class LocalWavTtsProvider:
                 "script_id": script.script_id,
                 "voice": "local-tone-placeholder",
                 "duration_seconds": duration_seconds,
+                "network": False,
+                "paid_call": False,
+            },
+        )
+
+
+class Pyttsx3TtsProvider:
+    """Offline pyttsx3 provider that uses locally installed system voices."""
+
+    provider_name = PYTTSX3_PROVIDER_NAME
+    provider_version = PYTTSX3_PROVIDER_VERSION
+
+    def __init__(self, *, voice_id: str | None = None, rate_wpm: int = PYTTSX3_DEFAULT_RATE_WPM):
+        if rate_wpm <= 0:
+            raise UserInputError("pyttsx3 rate must be greater than zero words per minute.")
+        self.voice_id = voice_id.strip() if voice_id is not None and voice_id.strip() else None
+        self.rate_wpm = rate_wpm
+
+    def synthesize(
+        self,
+        script: NarrationScriptRecord,
+        *,
+        timeout_seconds: int = DEFAULT_TTS_TIMEOUT_SECONDS,
+    ) -> ProviderAudioResult:
+        """Generate spoken narration audio with pyttsx3."""
+        validate_tts_request(script, timeout_seconds=timeout_seconds)
+        audio_path = _temporary_wav_path(prefix="autotok-pyttsx3-")
+        text_path = _temporary_text_path(prefix="autotok-pyttsx3-script-")
+        text_path.write_text(script.full_text, encoding="utf-8")
+        command = [
+            sys.executable,
+            "-c",
+            _PYTTSX3_CHILD_CODE,
+            str(text_path),
+            str(audio_path),
+            self.voice_id or "",
+            str(self.rate_wpm),
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                check=False,
+                text=True,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ProviderError(
+                f"pyttsx3 narration timed out after {timeout_seconds} seconds."
+            ) from exc
+        finally:
+            text_path.unlink(missing_ok=True)
+
+        if completed.returncode != 0:
+            message = _clean_provider_stderr(completed.stderr)
+            if "pyttsx3 is not installed" in message:
+                raise ProviderError(
+                    "pyttsx3 is not installed. Install it with "
+                    '`python -m pip install -e ".[tts]"` or `python -m pip install pyttsx3`.'
+                )
+            raise ProviderError(f"pyttsx3 narration failed: {message}")
+
+        return ProviderAudioResult(
+            audio_path=audio_path,
+            provider_request={
+                "provider": self.provider_name,
+                "provider_version": self.provider_version,
+                "timeout_seconds": timeout_seconds,
+                "script_id": script.script_id,
+                "voice": self.voice_id or "system-default",
+                "rate_wpm": self.rate_wpm,
                 "network": False,
                 "paid_call": False,
             },
@@ -234,6 +347,18 @@ def stable_audio_id(
 def _temporary_wav_path(*, prefix: str) -> Path:
     with tempfile.NamedTemporaryFile(prefix=prefix, suffix=".wav", delete=False) as handle:
         return Path(handle.name)
+
+
+def _temporary_text_path(*, prefix: str) -> Path:
+    with tempfile.NamedTemporaryFile(prefix=prefix, suffix=".txt", delete=False) as handle:
+        return Path(handle.name)
+
+
+def _clean_provider_stderr(value: str) -> str:
+    message = value.strip()
+    if not message:
+        return "provider exited without an error message"
+    return " ".join(message.splitlines())
 
 
 def _write_tone_wav(

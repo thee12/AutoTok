@@ -93,6 +93,7 @@ from autotok.subtitles import (
 from autotok.transform import DEFAULT_TARGET_SECONDS, DeterministicScriptTransformer
 from autotok.tts import (
     LocalWavTtsProvider,
+    Pyttsx3TtsProvider,
     build_manual_audio_record,
     build_tts_audio_record,
 )
@@ -342,7 +343,7 @@ def _add_script_parser(subcommands: argparse._SubParsersAction[argparse.Argument
     script_narrate.add_argument("script_id", help="Approved script ID to narrate.")
     script_narrate.add_argument(
         "--provider",
-        choices=["local_wav"],
+        choices=["local_wav", "pyttsx3"],
         default=None,
         help="TTS provider for generated narration audio.",
     )
@@ -2116,9 +2117,11 @@ def _load_transformer(provider: str) -> DeterministicScriptTransformer:
     raise UserInputError(f"Unsupported script transformation provider: {provider}")
 
 
-def _load_tts_provider(provider: str) -> LocalWavTtsProvider:
+def _load_tts_provider(provider: str) -> LocalWavTtsProvider | Pyttsx3TtsProvider:
     if provider == "local_wav":
         return LocalWavTtsProvider()
+    if provider == "pyttsx3":
+        return Pyttsx3TtsProvider()
     raise UserInputError(f"Unsupported TTS provider: {provider}")
 
 

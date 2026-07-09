@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import struct
+import subprocess
 import wave
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,50 @@ def test_script_narrate_generates_audio_after_approval(
     assert Path(narrated["artifacts"]["audio"]).exists()
     assert inspect_exit_code == 0
     assert inspected["audio_id"] == audio_id
+
+
+def test_script_narrate_generates_pyttsx3_audio_after_approval(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    data_dir = tmp_path / "data"
+    script_id = import_transform_and_approve(data_dir, capsys)
+
+    def fake_run(
+        args: list[str],
+        *,
+        capture_output: bool,
+        check: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        output_path = Path(args[4])
+        write_test_wav(output_path)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr("autotok.tts.subprocess.run", fake_run)
+
+    exit_code = main(
+        [
+            "--data-dir",
+            str(data_dir),
+            "script",
+            "narrate",
+            script_id,
+            "--provider",
+            "pyttsx3",
+            "--json",
+        ]
+    )
+
+    narrated: dict[str, Any] = json.loads(capsys.readouterr().out)
+    assert exit_code == 0
+    assert narrated["source_type"] == "tts_generated"
+    assert narrated["provider_name"] == "pyttsx3"
+    assert narrated["provider_request"]["network"] is False
+    assert narrated["provider_request"]["paid_call"] is False
+    assert narrated["metadata"]["duration_seconds"] == 1.0
 
 
 def test_script_narrate_rejects_pending_script(

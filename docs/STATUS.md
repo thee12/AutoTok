@@ -29,7 +29,8 @@ Phase 13 - Optional analytics feedback, experiments, and advanced templates (com
   `autotok script approve`
 - canonical narration audio dataclasses
 - provider-independent TTS interface
-- local WAV provider for credential-free generated audio
+- local WAV provider for credential-free placeholder audio
+- pyttsx3 provider for no-cost offline spoken narration using system voices
 - manually supplied WAV audio path
 - fake TTS provider test double
 - WAV PCM probing, validation, metadata, and hashing

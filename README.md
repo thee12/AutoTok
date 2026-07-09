@@ -18,7 +18,7 @@ provider calls are made by tests.
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev,tts]"
 ```
 
 On macOS or Linux, activate the virtual environment with:
@@ -111,11 +111,10 @@ autotok script inspect script_0123456789abcdef
 autotok script approve script_0123456789abcdef
 ```
 
-Create validated narration audio for an approved script with the local WAV
-provider:
+Create validated spoken narration audio for an approved script with the free local pyttsx3 provider:
 
 ```bash
-autotok script narrate script_0123456789abcdef --provider local_wav
+autotok script narrate script_0123456789abcdef --provider pyttsx3
 ```
 
 Use an existing local WAV file as manually supplied narration audio:
@@ -232,7 +231,7 @@ Current environment variables:
 - `AUTOTOK_LOG_LEVEL`, default `INFO`
 - `AUTOTOK_LOG_FORMAT`, default `text`, set to `json` for structured operational logs
 - `AUTOTOK_DATA_DIR`, default `data`
-- `AUTOTOK_TTS_PROVIDER`, default `local_wav`
+- `AUTOTOK_TTS_PROVIDER`, default `local_wav`; use `pyttsx3` for offline spoken narration
 - `AUTOTOK_TTS_TIMEOUT_SECONDS`, default `30`
 - `AUTOTOK_REDDIT_OAUTH_TOKEN`, optional bearer token for live Reddit Data API discovery
 - `AUTOTOK_REDDIT_USER_AGENT`, default `AutoTok/0.1 local-source-ingestion`
