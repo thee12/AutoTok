@@ -112,6 +112,8 @@ def test_subtitle_exports_include_expected_headers_and_timing() -> None:
     assert "1\n00:00:00,000 -->" in srt
     assert vtt.startswith("WEBVTT")
     assert "[Events]" in ass
+    assert "Style: Default,Arial Black,86," in ass
+    assert ",-1,0,5,80,80,0,1" in ass
     assert "Dialogue:" in ass
 
 

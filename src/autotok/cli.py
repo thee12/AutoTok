@@ -358,6 +358,17 @@ def _add_script_parser(subcommands: argparse._SubParsersAction[argparse.Argument
         default=None,
         help="Provider timeout in seconds.",
     )
+    script_narrate.add_argument(
+        "--voice-id",
+        default=None,
+        help="pyttsx3 system voice ID to use for generated narration audio.",
+    )
+    script_narrate.add_argument(
+        "--rate-wpm",
+        type=int,
+        default=None,
+        help="pyttsx3 narration rate in words per minute.",
+    )
     script_narrate.add_argument("--json", action="store_true", help="Print audio record as JSON.")
     script_narrate.set_defaults(handler=run_script_narrate)
 
@@ -1847,13 +1858,19 @@ def run_script_narrate(args: argparse.Namespace) -> int:
     )
     script = ScriptStore(config.data_dir).load(args.script_id).record
     if args.audio_file is None:
-        provider = _load_tts_provider(config.tts_provider)
+        provider = _load_tts_provider(
+            config.tts_provider,
+            voice_id=args.voice_id,
+            rate_wpm=args.rate_wpm,
+        )
         record, source_audio_path = build_tts_audio_record(
             script,
             provider=provider,
             timeout_seconds=config.tts_timeout_seconds,
         )
     else:
+        if args.voice_id is not None or args.rate_wpm is not None:
+            raise UserInputError("pyttsx3 voice and rate options cannot be used with --audio-file.")
         record = build_manual_audio_record(script, audio_path=args.audio_file)
         source_audio_path = args.audio_file.expanduser()
 
@@ -2117,11 +2134,20 @@ def _load_transformer(provider: str) -> DeterministicScriptTransformer:
     raise UserInputError(f"Unsupported script transformation provider: {provider}")
 
 
-def _load_tts_provider(provider: str) -> LocalWavTtsProvider | Pyttsx3TtsProvider:
+def _load_tts_provider(
+    provider: str,
+    *,
+    voice_id: str | None = None,
+    rate_wpm: int | None = None,
+) -> LocalWavTtsProvider | Pyttsx3TtsProvider:
     if provider == "local_wav":
+        if voice_id is not None or rate_wpm is not None:
+            raise UserInputError("pyttsx3 voice and rate options require --provider pyttsx3.")
         return LocalWavTtsProvider()
     if provider == "pyttsx3":
-        return Pyttsx3TtsProvider()
+        if rate_wpm is None:
+            return Pyttsx3TtsProvider(voice_id=voice_id)
+        return Pyttsx3TtsProvider(voice_id=voice_id, rate_wpm=rate_wpm)
     raise UserInputError(f"Unsupported TTS provider: {provider}")
 
 

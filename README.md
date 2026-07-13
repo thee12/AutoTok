@@ -117,6 +117,18 @@ Create validated spoken narration audio for an approved script with the free loc
 autotok script narrate script_0123456789abcdef --provider pyttsx3
 ```
 
+Tune pyttsx3 by selecting an installed system voice and narration speed:
+
+```bash
+autotok script narrate script_0123456789abcdef --provider pyttsx3 --voice-id voice_id_here --rate-wpm 155
+```
+
+On Windows, list installed pyttsx3 voice IDs with:
+
+```powershell
+python -c "import pyttsx3; e=pyttsx3.init(); [print(v.id) for v in e.getProperty('voices')]"
+```
+
 Use an existing local WAV file as manually supplied narration audio:
 
 ```bash
@@ -341,6 +353,9 @@ Each subtitle directory contains:
   settings, validation status, and script/audio provenance
 - `subtitles.srt`, `subtitles.vtt`, or `subtitles.ass`, depending on the
   requested export format
+
+ASS subtitles used for video rendering default to a larger bold Arial Black style
+positioned in the middle of the portrait frame.
 
 Phase 4 supports provider word timings when supplied as JSON and an explicit
 approximate fallback that distributes script words across the narration audio

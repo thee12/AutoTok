@@ -26,6 +26,10 @@ DEFAULT_MAX_CHARS_PER_LINE = 42
 DEFAULT_MAX_LINES_PER_CUE = 2
 DEFAULT_MAX_WORDS_PER_CUE = 8
 MIN_CUE_DURATION_SECONDS = 0.25
+ASS_FONT_NAME = "Arial Black"
+ASS_FONT_SIZE = 86
+ASS_BOLD = -1
+ASS_ALIGNMENT_MIDDLE_CENTER = 5
 _WORD_PATTERN = re.compile(r"\S+")
 
 
@@ -316,7 +320,8 @@ def export_ass(document: SubtitleDocument) -> str:
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Italic, "
         "Alignment, MarginL, MarginR, MarginV, Encoding",
-        "Style: Default,Arial,72,&H00FFFFFF,&H00000000,0,0,2,80,80,180,1",
+        f"Style: Default,{ASS_FONT_NAME},{ASS_FONT_SIZE},&H00FFFFFF,&H00000000,"
+        f"{ASS_BOLD},0,{ASS_ALIGNMENT_MIDDLE_CENTER},80,80,0,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",

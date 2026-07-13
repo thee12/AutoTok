@@ -53,6 +53,8 @@ def test_script_narrate_generates_pyttsx3_audio_after_approval(
         text: bool,
         timeout: int,
     ) -> subprocess.CompletedProcess[str]:
+        assert args[5] == "voice_a"
+        assert args[6] == "155"
         output_path = Path(args[4])
         write_test_wav(output_path)
         return subprocess.CompletedProcess(args, 0, "", "")
@@ -68,6 +70,10 @@ def test_script_narrate_generates_pyttsx3_audio_after_approval(
             script_id,
             "--provider",
             "pyttsx3",
+            "--voice-id",
+            "voice_a",
+            "--rate-wpm",
+            "155",
             "--json",
         ]
     )
@@ -78,6 +84,8 @@ def test_script_narrate_generates_pyttsx3_audio_after_approval(
     assert narrated["provider_name"] == "pyttsx3"
     assert narrated["provider_request"]["network"] is False
     assert narrated["provider_request"]["paid_call"] is False
+    assert narrated["provider_request"]["voice"] == "voice_a"
+    assert narrated["provider_request"]["rate_wpm"] == 155
     assert narrated["metadata"]["duration_seconds"] == 1.0
 
 
