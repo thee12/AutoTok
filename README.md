@@ -355,7 +355,8 @@ Each subtitle directory contains:
   requested export format
 
 ASS subtitles used for video rendering default to a larger bold Arial Black style
-positioned in the middle of the portrait frame.
+positioned in the middle of the portrait frame, with short four-word cue groups
+and a black outline for readability over gameplay.
 
 Phase 4 supports provider word timings when supplied as JSON and an explicit
 approximate fallback that distributes script words across the narration audio

@@ -14,6 +14,7 @@ from autotok.script_models import NarrationScriptRecord
 from autotok.subtitle_models import SubtitleDocument, SubtitleExportFormat, WordTiming
 from autotok.subtitle_storage import SubtitleStore
 from autotok.subtitles import (
+    DEFAULT_MAX_WORDS_PER_CUE,
     ApproximateAudioDurationStrategy,
     ProviderWordTimingStrategy,
     build_subtitle_document,
@@ -46,7 +47,9 @@ def test_approximate_strategy_builds_valid_subtitle_document() -> None:
     assert document.audio_id == audio.audio_id
     assert document.metadata.approximate is True
     assert document.metadata.timing_strategy == "approximate_audio_duration"
+    assert document.metadata.max_words_per_cue == DEFAULT_MAX_WORDS_PER_CUE
     assert document.cues
+    assert all(len(cue.text.split()) <= DEFAULT_MAX_WORDS_PER_CUE for cue in document.cues)
     validate_subtitle_document(document, audio=audio)
 
 
@@ -112,8 +115,9 @@ def test_subtitle_exports_include_expected_headers_and_timing() -> None:
     assert "1\n00:00:00,000 -->" in srt
     assert vtt.startswith("WEBVTT")
     assert "[Events]" in ass
-    assert "Style: Default,Arial Black,86," in ass
-    assert ",-1,0,5,80,80,0,1" in ass
+    assert "BorderStyle, Outline, Shadow, Alignment" in ass
+    assert "Style: Default,Arial Black,86,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000," in ass
+    assert ",-1,0,0,0,100,100,0,0,1,5,0,5,80,80,0,1" in ass
     assert "Dialogue:" in ass
 
 

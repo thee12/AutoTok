@@ -24,11 +24,18 @@ from autotok.subtitle_models import (
 
 DEFAULT_MAX_CHARS_PER_LINE = 42
 DEFAULT_MAX_LINES_PER_CUE = 2
-DEFAULT_MAX_WORDS_PER_CUE = 8
+DEFAULT_MAX_WORDS_PER_CUE = 4
 MIN_CUE_DURATION_SECONDS = 0.25
 ASS_FONT_NAME = "Arial Black"
 ASS_FONT_SIZE = 86
+ASS_PRIMARY_COLOUR = "&H00FFFFFF"
+ASS_SECONDARY_COLOUR = "&H00FFFFFF"
+ASS_OUTLINE_COLOUR = "&H00000000"
+ASS_BACK_COLOUR = "&H00000000"
 ASS_BOLD = -1
+ASS_BORDER_STYLE = 1
+ASS_OUTLINE_WIDTH = 5
+ASS_SHADOW_DEPTH = 0
 ASS_ALIGNMENT_MIDDLE_CENTER = 5
 _WORD_PATTERN = re.compile(r"\S+")
 
@@ -318,10 +325,14 @@ def export_ass(document: SubtitleDocument) -> str:
         "PlayResY: 1920",
         "",
         "[V4+ Styles]",
-        "Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, Bold, Italic, "
-        "Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Default,{ASS_FONT_NAME},{ASS_FONT_SIZE},&H00FFFFFF,&H00000000,"
-        f"{ASS_BOLD},0,{ASS_ALIGNMENT_MIDDLE_CENTER},80,80,0,1",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+        "BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, "
+        "BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        f"Style: Default,{ASS_FONT_NAME},{ASS_FONT_SIZE},{ASS_PRIMARY_COLOUR},"
+        f"{ASS_SECONDARY_COLOUR},{ASS_OUTLINE_COLOUR},{ASS_BACK_COLOUR},{ASS_BOLD},"
+        "0,0,0,100,100,0,0,"
+        f"{ASS_BORDER_STYLE},{ASS_OUTLINE_WIDTH},{ASS_SHADOW_DEPTH},"
+        f"{ASS_ALIGNMENT_MIDDLE_CENTER},80,80,0,1",
         "",
         "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
