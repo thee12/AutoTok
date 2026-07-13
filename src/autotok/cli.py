@@ -667,6 +667,23 @@ def _add_job_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentPar
             help="Number of recently selected media IDs to avoid when possible.",
         )
         job_run.add_argument(
+            "--tts-provider",
+            choices=["local_wav", "pyttsx3"],
+            default=None,
+            help="TTS provider for the automated narration stage.",
+        )
+        job_run.add_argument(
+            "--voice-id",
+            default=None,
+            help="pyttsx3 system voice ID for the automated narration stage.",
+        )
+        job_run.add_argument(
+            "--rate-wpm",
+            type=int,
+            default=None,
+            help="pyttsx3 narration rate in words per minute for the automated narration stage.",
+        )
+        job_run.add_argument(
             "--max-attempts",
             type=int,
             default=2,
@@ -731,6 +748,23 @@ def _add_job_parser(subcommands: argparse._SubParsersAction[argparse.ArgumentPar
         type=int,
         default=DEFAULT_RECENT_AVOIDANCE_LIMIT,
         help="Number of recently selected media IDs to avoid when possible.",
+    )
+    job_run_batch.add_argument(
+        "--tts-provider",
+        choices=["local_wav", "pyttsx3"],
+        default=None,
+        help="TTS provider for each automated narration stage.",
+    )
+    job_run_batch.add_argument(
+        "--voice-id",
+        default=None,
+        help="pyttsx3 system voice ID for each automated narration stage.",
+    )
+    job_run_batch.add_argument(
+        "--rate-wpm",
+        type=int,
+        default=None,
+        help="pyttsx3 narration rate in words per minute for each automated narration stage.",
     )
     job_run_batch.add_argument(
         "--max-attempts",
@@ -2202,6 +2236,9 @@ def _story_pipeline_options_from_args(args: argparse.Namespace) -> StoryPipeline
         avoid_recent=args.avoid_recent,
         ffmpeg_path=args.ffmpeg_path,
         ffprobe_path=args.ffprobe_path,
+        tts_provider=args.tts_provider,
+        tts_voice_id=args.voice_id,
+        tts_rate_wpm=args.rate_wpm,
     )
 
 

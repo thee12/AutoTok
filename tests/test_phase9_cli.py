@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from autotok.cli import main
+from tests.test_audio import write_test_wav as write_audio_test_wav
 from tests.test_phase6_helpers import create_fake_ffmpeg, create_fake_ffprobe
 
 
 def test_job_create_run_resume_and_inspect_json(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     data_dir = tmp_path / "data"
     ffprobe = create_fake_ffprobe(tmp_path, width=1080, height=1920, duration=120.0)
@@ -52,6 +55,36 @@ def test_job_create_run_resume_and_inspect_json(
     )
     capsys.readouterr()
 
+    tts_calls: list[list[str]] = []
+    real_subprocess_run = subprocess.run
+
+    def fake_tts_run(
+        args: list[str],
+        *,
+        capture_output: bool,
+        check: bool,
+        text: bool,
+        timeout: int,
+    ) -> subprocess.CompletedProcess[str]:
+        if timeout != 30:
+            return real_subprocess_run(
+                args,
+                capture_output=capture_output,
+                check=check,
+                text=text,
+                timeout=timeout,
+            )
+        assert capture_output is True
+        assert check is False
+        assert text is True
+        assert args[5] == "voice_a"
+        assert args[6] == "155"
+        write_audio_test_wav(Path(args[4]), sample_rate=8_000, frame_count=240_000)
+        tts_calls.append(args)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr("autotok.tts.subprocess.run", fake_tts_run)
+
     create_exit = main(
         [
             "--data-dir",
@@ -77,6 +110,12 @@ def test_job_create_run_resume_and_inspect_json(
             "20",
             "--tag",
             "gameplay",
+            "--tts-provider",
+            "pyttsx3",
+            "--voice-id",
+            "voice_a",
+            "--rate-wpm",
+            "155",
             "--ffmpeg-path",
             str(ffmpeg),
             "--ffprobe-path",
@@ -97,6 +136,12 @@ def test_job_create_run_resume_and_inspect_json(
             "20",
             "--tag",
             "gameplay",
+            "--tts-provider",
+            "pyttsx3",
+            "--voice-id",
+            "voice_a",
+            "--rate-wpm",
+            "155",
             "--ffmpeg-path",
             str(ffmpeg),
             "--ffprobe-path",
@@ -128,6 +173,7 @@ def test_job_create_run_resume_and_inspect_json(
     assert [stage["attempt_count"] for stage in resumed["stages"]] == [1, 1, 1, 1, 1, 1]
     assert inspected["job"]["job_id"] == job_id
     assert len(inspected["artifacts"]) == 7
+    assert len(tts_calls) == 1
 
 
 def test_job_run_batch_honors_limit_and_stop_after(

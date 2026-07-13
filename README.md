@@ -423,6 +423,7 @@ Useful commands:
 
 - `autotok job create --story-id <story_id>` queues one or more story jobs.
 - `autotok job run <job_id>` runs or resumes a story-to-render job.
+- `autotok job run <job_id> --tts-provider pyttsx3 --voice-id <voice_id> --rate-wpm 150 --tag gameplay` runs the automated pipeline with local spoken narration.
 - `autotok job run-batch <batch_id> --limit <n>` runs a bounded serial batch.
 - `autotok job inspect <job_id>` inspects stages, attempts, and artifacts.
 - `autotok job cleanup` previews retention cleanup; pass `--apply` to delete

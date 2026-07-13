@@ -41,7 +41,7 @@ from autotok.subtitle_models import SubtitleExportFormat
 from autotok.subtitle_storage import SubtitleStore
 from autotok.subtitles import ApproximateAudioDurationStrategy, build_subtitle_document
 from autotok.transform import DEFAULT_TARGET_SECONDS, DeterministicScriptTransformer
-from autotok.tts import LocalWavTtsProvider, build_tts_audio_record
+from autotok.tts import LocalWavTtsProvider, Pyttsx3TtsProvider, build_tts_audio_record
 
 DEFAULT_MAX_JOB_ATTEMPTS = 2
 DEFAULT_CLIP_PADDING_SECONDS = 1.0
@@ -124,6 +124,9 @@ class StoryPipelineOptions:
     ffmpeg_path: Path = Path("ffmpeg")
     ffprobe_path: Path = Path("ffprobe")
     clip_padding_seconds: float = DEFAULT_CLIP_PADDING_SECONDS
+    tts_provider: str | None = None
+    tts_voice_id: str | None = None
+    tts_rate_wpm: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,9 +180,10 @@ def build_story_to_render_stage_definitions(
     def narrate(context: JobRunContext) -> StageExecutionResult:
         script_id = _latest_artifact_ref(context.store, context.job.job_id, ArtifactType.SCRIPT)
         script = ScriptStore(config.data_dir).load(script_id).record
+        provider = _build_job_tts_provider(config=config, options=options)
         record, source_audio_path = build_tts_audio_record(
             script,
-            provider=LocalWavTtsProvider(),
+            provider=provider,
             timeout_seconds=config.tts_timeout_seconds,
         )
         stored = AudioStore(config.data_dir).save(record, source_audio_path=source_audio_path)
@@ -265,6 +269,23 @@ def build_story_to_render_stage_definitions(
         JobStageDefinition("select_clip", select_clip),
         JobStageDefinition("render", render),
     )
+
+
+def _build_job_tts_provider(
+    *,
+    config: AppConfig,
+    options: StoryPipelineOptions,
+) -> LocalWavTtsProvider | Pyttsx3TtsProvider:
+    provider_name = options.tts_provider or config.tts_provider
+    if provider_name == "local_wav":
+        if options.tts_voice_id is not None or options.tts_rate_wpm is not None:
+            raise UserInputError("pyttsx3 voice and rate options require --tts-provider pyttsx3.")
+        return LocalWavTtsProvider()
+    if provider_name == "pyttsx3":
+        if options.tts_rate_wpm is None:
+            return Pyttsx3TtsProvider(voice_id=options.tts_voice_id)
+        return Pyttsx3TtsProvider(voice_id=options.tts_voice_id, rate_wpm=options.tts_rate_wpm)
+    raise UserInputError(f"Unsupported TTS provider: {provider_name}")
 
 
 def create_story_jobs(
